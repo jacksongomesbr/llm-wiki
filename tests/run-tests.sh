@@ -513,6 +513,47 @@ assert_eq "$?" "1" "requires --op"
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
+# archive-source.sh
+# ════════════════════════════════════════════════════════════════════════════
+
+if should_run "archive"; then
+describe "archive-source.sh"
+
+D="$(mktemp -d)"; TMPDIRS="$TMPDIRS $D"
+OUT="$(printf 'Fetched body text.\n' | bash "$SCRIPTS/archive-source.sh" \
+    --topic "Test Topic" --slug "test-source" \
+    --url "https://example.com/a" --url "https://example.com/b" \
+    --raw-dir "$D/raw" --primary --note "partial fetch" 2>&1)"
+ARCHIVED="$(printf '%s' "$OUT" | head -1)"
+HASH="$(printf '%s' "$OUT" | tail -1)"
+
+assert_eq "$([ -f "$ARCHIVED" ] && echo yes || echo no)" "yes" "writes the archived file"
+assert_contains "$ARCHIVED" "-test-source.md" "names the file with a date prefix and slug"
+BODY="$(cat "$ARCHIVED")"
+assert_contains "$BODY" "Fetched body text." "preserves the piped content"
+assert_contains "$BODY" "https://example.com/a" "records every source URL"
+assert_contains "$BODY" "https://example.com/b" "records repeated --url flags"
+assert_contains "$BODY" "primary_source: true" "marks primary sources"
+assert_contains "$BODY" 'note: "partial fetch"' "records the retrieval note"
+assert_eq "${#HASH}" "64" "prints a SHA-256 of the archived file"
+assert_eq "$HASH" "$(bash -c "source '$SCRIPTS/_utils.sh'; sha256_file '$ARCHIVED'")" \
+    "the printed hash matches the file (usable as an ingest sentinel)"
+
+# The slug becomes a filename, so it must not be able to escape the directory.
+printf 'x\n' | bash "$SCRIPTS/archive-source.sh" --topic T --slug "../../etc/passwd" \
+    --url "https://example.com" --raw-dir "$D/raw2" >/dev/null 2>&1
+assert_eq "$(find "$D/raw2" -name '*.md' | wc -l | tr -d ' ')" "1" "normalises a path-traversal slug"
+assert_eq "$([ -e "$D/raw2/../../etc/passwd" ] && echo escaped || echo contained)" "contained" \
+    "cannot write outside the raw directory"
+
+printf '' | bash "$SCRIPTS/archive-source.sh" --topic T --slug s --url u --raw-dir "$D/raw3" >/dev/null 2>&1
+assert_eq "$?" "1" "rejects empty stdin"
+
+printf 'x\n' | bash "$SCRIPTS/archive-source.sh" --topic T --raw-dir "$D/raw4" >/dev/null 2>&1
+assert_eq "$?" "1" "requires --slug and --url"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
 # Summary
 # ════════════════════════════════════════════════════════════════════════════
 

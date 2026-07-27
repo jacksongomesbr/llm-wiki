@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`/wiki-research <topic>`** — discover sources on the web and file them.
+  Previously the skill could only ingest sources you had already found;
+  `.raw/` had to be populated by hand. Three-round discovery (decompose into
+  angles, rank and fetch, chase contradictions), source tiering that prefers
+  primary documents, archival to `.raw/` with provenance, then handoff to the
+  existing unmodified two-phase ingest.
+- `scripts/archive-source.sh` — writes fetched content to
+  `.raw/YYYY-MM-DD-{slug}.md` with provenance frontmatter and prints its
+  SHA-256. This is what makes web sources idempotent: previously there was no
+  way to hash fetched content, since `hash-files.sh` requires a path.
 - `scripts/build-index.sh` — regenerates `index.md` and the staleness baseline
   deterministically. Index regeneration was previously LLM handwork on every
   ingest and save, at a token cost proportional to the whole wiki.
@@ -17,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/log-event.sh` and `.llm-wiki/log.md` — append-only chronological
   record of ingests, queries and lints, in the grep-friendly format the
   original LLM Wiki pattern describes.
-- `tests/run-tests.sh` — 59 behavioural assertions, no external dependencies.
+- `tests/run-tests.sh` — 72 behavioural assertions, no external dependencies.
 - CI now runs the test suite on both Ubuntu and macOS.
 
 ### Fixed

@@ -88,9 +88,23 @@ If the wiki doesn't have relevant knowledge, Claude will tell you and suggest ad
 
 ### Adding Your Own Knowledge
 
+**If you have the sources:**
+
 1. Drop source files (markdown, text) into `./.raw/`
 2. Run `/wiki-ingest .raw/your-file.md`
 3. The file is analyzed, concepts extracted, and interlinked pages created
+
+**If you don't:**
+
+```
+/wiki-research Apple, Microsoft, Steve Jobs, Bill Gates
+```
+
+`/wiki-research` searches the web, ranks what it finds (primary documents over
+reference works over reporting), archives every source to `./.raw/` with
+provenance, and then hands off to the same two-phase ingest. Research several
+related topics at once — the cross-linking pass between them is where a wiki
+beats a pile of summaries.
 
 ---
 ---
@@ -128,6 +142,7 @@ Claude reads index.md → finds relevant pages → answers with citations
 | **Auto-generated index** | `build-index.sh` regenerates `index.md` on every change. Enables O(1) lookup, at zero token cost. |
 | **SHA-256 incremental caching** | `.done` sentinel files prevent re-ingestion. Safe to re-drop sources. |
 | **Behavioural tests** | `tests/run-tests.sh` asserts each check *catches* the fault it exists for, not just that it exits 0. |
+| **Sources are archived, not linked** | `/wiki-research` writes fetched content to `.raw/` so provenance survives link rot and ingest stays idempotent. |
 
 ### Three-Layer Data Architecture
 
@@ -218,6 +233,7 @@ llm-wiki/
 ├── install.sh                       Global installation (one-time)
 ├── commands/                        Auto-discovered slash commands
 │   ├── wiki-ingest.md               /wiki-ingest
+│   ├── wiki-research.md             /wiki-research
 │   ├── wiki-query.md                /wiki-query
 │   ├── wiki-lint.md                 /wiki-lint
 │   ├── wiki-save.md                 /wiki-save
@@ -231,6 +247,7 @@ llm-wiki/
 │   ├── build-index.sh               ★ Regenerate index.md + staleness baseline
 │   ├── update-backlinks.sh          Maintain generated Backlinks sections
 │   ├── log-event.sh                 Append to the chronological log.md
+│   ├── archive-source.sh            Write fetched web content to .raw/ with provenance
 │   ├── hash-files.sh                SHA-256 hash source files
 │   ├── check-stale.sh               Index freshness check
 │   ├── find-orphans.sh              Pages with zero incoming links
@@ -238,6 +255,7 @@ llm-wiki/
 │   └── find-broken-links.sh         Dead wikilink detection
 ├── workflows/                       Deep workflow procedures (read by the skill)
 │   ├── ingest.md                    Two-phase source ingestion
+│   ├── research.md                  Web discovery → archive → ingest
 │   ├── query.md                     Index-first knowledge retrieval
 │   ├── lint.md                      Structural + semantic health check
 │   ├── save-synthesis.md            Persist answers as synthesis pages

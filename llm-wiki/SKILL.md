@@ -1,6 +1,6 @@
 ---
 name: wiki
-description: Build and maintain a persistent, interlinked wiki from source documents. Knowledge is compiled once and kept current. Based on Andrej Karpathy's LLM Wiki pattern. Commands: /wiki (dashboard), /wiki-ingest, /wiki-query, /wiki-lint, /wiki-save, /wiki-graph, /wiki-review.
+description: Build and maintain a persistent, interlinked wiki from source documents, or research a topic from the web and file the results. Knowledge is compiled once and kept current. Based on Andrej Karpathy's LLM Wiki pattern. Commands: /wiki (dashboard), /wiki-ingest, /wiki-research, /wiki-query, /wiki-lint, /wiki-save, /wiki-graph, /wiki-review.
 ---
 
 # LLM Wiki — Compounding Knowledge Base
@@ -52,7 +52,7 @@ Use `Skill("wiki")` when you need deep wiki operations (ingestion, full lint, gr
 
 ## Slash Commands
 
-The skill provides 6 slash commands, one `.md` file each in `commands/`, installed to `~/.claude/commands/` by `install.sh` and auto-discovered at startup. `/wiki` is not a command file — it is this skill, which registers under the name `wiki` from the frontmatter above.
+The skill provides 7 slash commands, one `.md` file each in `commands/`, installed to `~/.claude/commands/` by `install.sh` and auto-discovered at startup. `/wiki` is not a command file — it is this skill, which registers under the name `wiki` from the frontmatter above.
 
 When you are invoked (via `Skill("wiki")`), determine which workflow to follow based on the command the user ran:
 
@@ -60,6 +60,7 @@ When you are invoked (via `Skill("wiki")`), determine which workflow to follow b
 |---------|-------------|-------------|---------------|
 | `/wiki` | _(skill auto-registration)_ | Dashboard — stats, recent activity, pending reviews | (inline below) |
 | `/wiki-ingest <file\|URL>` | `commands/wiki-ingest.md` | Ingest a source into the wiki (two-phase) | `workflows/ingest.md` |
+| `/wiki-research <topic>` | `commands/wiki-research.md` | Discover sources on the web, archive them, then ingest | `workflows/research.md` |
 | `/wiki-query <question>` | `commands/wiki-query.md` | Answer a question from wiki knowledge | `workflows/query.md` |
 | `/wiki-lint [--quick\|--full]` | `commands/wiki-lint.md` | Health check — structural or semantic | `workflows/lint.md` |
 | `/wiki-save` | `commands/wiki-save.md` | Save current answer as a synthesis page | `workflows/save-synthesis.md` |
@@ -84,6 +85,7 @@ When you are invoked (via `Skill("wiki")`), determine which workflow to follow b
 | `scripts/build-index.sh` | **Regenerate `index.md`** — the only supported way |
 | `scripts/update-backlinks.sh` | Refresh the generated Backlinks block on each page |
 | `scripts/log-event.sh` | Append an entry to the chronological `log.md` |
+| `scripts/archive-source.sh` | Write fetched web content to `.raw/` with provenance |
 | `./wiki/.llm-wiki/` | Wiki metadata (index, log, cache, review queue) |
 | `./wiki/.llm-wiki/log.md` | Chronological record of ingests, queries and lints |
 | `./wiki/.llm-wiki/schema.md` | Per-project copy of schema |
