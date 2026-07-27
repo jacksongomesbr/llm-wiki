@@ -28,7 +28,12 @@ You should **proactively** use the wiki without waiting for explicit `/wiki*` co
 
 3. **When the wiki lacks knowledge**: Tell the user clearly: "The wiki doesn't cover this yet." Suggest dropping source documents into `.raw/` for ingestion.
 
-4. **After modifying wiki pages**: Always regenerate the index by reading all pages, extracting frontmatter, and writing the updated `.llm-wiki/index.md`.
+4. **After modifying wiki pages**: Always regenerate the index — by running the script, not by hand:
+
+   ```bash
+   ~/.claude/skills/llm-wiki/scripts/build-index.sh "$WIKI_ROOT"
+   ~/.claude/skills/llm-wiki/scripts/update-backlinks.sh "$WIKI_ROOT"
+   ```
 
 5. **Knowledge gap detection**: Actively identify what the wiki is missing and suggest sources to fill gaps.
 
@@ -43,13 +48,13 @@ You should **proactively** use the wiki without waiting for explicit `/wiki*` co
 
 ### When to use the full skill
 
-Use `Skill("llm-wiki")` when you need deep wiki operations (ingestion, full lint, graph, review queue). The skill gives you access to all `workflows/` and `scripts/`.
+Use `Skill("wiki")` when you need deep wiki operations (ingestion, full lint, graph, review queue). The skill gives you access to all `workflows/` and `scripts/`.
 
 ## Slash Commands
 
-The skill provides 7 real slash commands. Each is a `.md` file in `commands/` that gets installed to `~/.claude/commands/` by `install.sh`. Claude Code auto-discovers them at startup.
+The skill provides 6 slash commands, one `.md` file each in `commands/`, installed to `~/.claude/commands/` by `install.sh` and auto-discovered at startup. `/wiki` is not a command file — it is this skill, which registers under the name `wiki` from the frontmatter above.
 
-When you are invoked (via `Skill("llm-wiki")`), determine which workflow to follow based on the command the user ran:
+When you are invoked (via `Skill("wiki")`), determine which workflow to follow based on the command the user ran:
 
 | Command | Command file | What it does | Workflow file |
 |---------|-------------|-------------|---------------|
@@ -63,7 +68,7 @@ When you are invoked (via `Skill("llm-wiki")`), determine which workflow to foll
 
 ## How to Use This Skill
 
-When you are invoked (via `Skill("llm-wiki")`), determine which workflow to follow based on the command the user ran. Then:
+When you are invoked (via `Skill("wiki")`), determine which workflow to follow based on the command the user ran. Then:
 
 1. **Read the corresponding workflow file** (listed in the table above)
 2. **Follow it step by step** — the workflow file contains exact procedures
@@ -76,7 +81,11 @@ When you are invoked (via `Skill("llm-wiki")`), determine which workflow to foll
 |------|---------|
 | `WIKI_SCHEMA.md` | Page type definitions, field specs, naming conventions |
 | `scripts/init-wiki.sh` | Bootstrap a new wiki directory |
-| `./wiki/.llm-wiki/` | Wiki metadata (index, cache, review queue) |
+| `scripts/build-index.sh` | **Regenerate `index.md`** — the only supported way |
+| `scripts/update-backlinks.sh` | Refresh the generated Backlinks block on each page |
+| `scripts/log-event.sh` | Append an entry to the chronological `log.md` |
+| `./wiki/.llm-wiki/` | Wiki metadata (index, log, cache, review queue) |
+| `./wiki/.llm-wiki/log.md` | Chronological record of ingests, queries and lints |
 | `./wiki/.llm-wiki/schema.md` | Per-project copy of schema |
 | `./wiki/.llm-wiki/config.md` | User configuration overrides |
 | `./wiki/.llm-wiki/index.md` | Auto-generated index — **never edit by hand** |

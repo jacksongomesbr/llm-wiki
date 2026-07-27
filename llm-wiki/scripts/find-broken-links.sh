@@ -6,6 +6,10 @@
 
 set -euo pipefail
 
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=_utils.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_utils.sh"
+
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     echo "Usage: find-broken-links.sh [wiki_root]"
     echo "Find [[wikilinks]] pointing to missing pages."
@@ -21,82 +25,37 @@ if [ ! -d "$WIKI_ROOT" ]; then
     exit 2
 fi
 
-# Collect all valid targets: page slugs + all aliases from frontmatter
-VALID_TARGETS=""
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
-# All page slugs in wiki root (skip index.md symlink)
+VALID="$TMP/valid.txt"
+: > "$VALID"
+
+# Valid link targets: every page slug, plus every alias declared in
+# frontmatter. `extract_frontmatter` reads only the block on line 1, so a `---`
+# horizontal rule in the body can no longer masquerade as an alias list.
 while IFS= read -r -d '' file; do
-    slug=$(basename "$file" .md)
-    VALID_TARGETS="$VALID_TARGETS"$'\n'"$slug"
-done < <(find "$WIKI_ROOT" -maxdepth 1 -name "*.md" ! -path "*/.llm-wiki/*" ! -name "index.md" -print0 2>/dev/null)
+    page_slug "$file" >> "$VALID"
+    fm_list "$(extract_frontmatter "$file")" aliases >> "$VALID"
+done < <(wiki_pages "$WIKI_ROOT")
 
-
-# Collect aliases from all pages using awk for robust YAML parsing
-collect_aliases() {
-    local file="$1"
-    sed -n '/^---$/,/^---$/p' "$file" | awk '
-        /^aliases:/ {
-            in_aliases=1
-            sub(/^aliases:[[:space:]]*/,"")
-            if ($0 ~ /^\[/) {
-                # Inline array: aliases: [a, b] or aliases: ["a", "b"]
-                gsub(/[\[\]]/,"")
-                n = split($0, arr, /,[[:space:]]*/)
-                for (i=1; i<=n; i++) {
-                    gsub(/^"|"$/, "", arr[i])
-                    if (arr[i] != "") print arr[i]
-                }
-                in_aliases=0
-            } else if ($0 != "") {
-                # Bare value: aliases: value or aliases: "value"
-                gsub(/^"|"$/, "", $0)
-                if ($0 != "") print $0
-                in_aliases=0
-            }
-            next
-        }
-        in_aliases && /^[a-z]/ { in_aliases=0; next }
-        in_aliases {
-            # Multi-line: - value or - "value"
-            gsub(/^[[:space:]]*-[[:space:]]*"?|"$|[\[\],]/,"")
-            if ($0 != "") print $0
-        }
-    ' || true
-}
-
-while IFS= read -r -d '' file; do
-    while IFS= read -r alias; do
-        [ -n "$alias" ] && VALID_TARGETS="$VALID_TARGETS"$'\n'"$alias"
-    done < <(collect_aliases "$file")
-done < <(find "$WIKI_ROOT" -maxdepth 1 -name "*.md" ! -path "*/.llm-wiki/*" -print0 2>/dev/null)
-
-# Deduplicate valid targets
-VALID_TARGETS=$(echo "$VALID_TARGETS" | sort -u)
+sort -u -o "$VALID" "$VALID"
 
 BROKEN_FOUND=0
 
-check_page() {
-    local file="$1"
-    local rel="${file#"$WIKI_ROOT"/}"
-
-    local links
-    links=$(sed -n 's/.*\[\[\([^]|#]*\)\(|[^]]*\)*\]\].*/\1/p' "$file" 2>/dev/null | sort -u)
-
+while IFS= read -r -d '' file; do
+    rel="${file#"$WIKI_ROOT"/}"
+    # `extract_links` returns every link on a line. The previous sed captured
+    # only the last one per line, so multi-link rows — which the schema
+    # mandates for evidence tables and "Related" lists — went unchecked.
     while IFS= read -r link; do
         [ -z "$link" ] && continue
-        echo "$link" | grep -q '://' && continue
-        [[ "$link" =~ ^# ]] && continue
-        if ! echo "$VALID_TARGETS" | grep -qFx "$link"; then
+        if ! grep -qFx "$link" "$VALID"; then
             echo "BROKEN: $rel → [[$link]]"
             BROKEN_FOUND=1
         fi
-    done <<< "$links"
-}
-
-while IFS= read -r -d '' file; do
-    check_page "$file"
-done < <(find "$WIKI_ROOT" -maxdepth 1 -name "*.md" ! -path "*/.llm-wiki/*" -print0 2>/dev/null)
-
+    done < <(extract_links "$file")
+done < <(wiki_pages "$WIKI_ROOT")
 
 if [ "$BROKEN_FOUND" -eq 0 ]; then
     echo "OK: No broken wikilinks found."

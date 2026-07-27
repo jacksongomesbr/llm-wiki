@@ -2,6 +2,9 @@
   "config": {
     "default": true,
     "MD013": false,
+    // Keep a Changelog repeats Added/Fixed/Changed under every version
+    // heading. Only flag duplicates that share a parent.
+    "MD024": { "siblings_only": true },
     "MD025": false,
     "MD040": false,
     "MD041": false,

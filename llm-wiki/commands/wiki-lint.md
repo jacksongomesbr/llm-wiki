@@ -18,7 +18,7 @@ Run these scripts from `~/.claude/skills/llm-wiki/scripts/`:
 
 ## Full Mode (LLM semantic analysis)
 
-Use `Skill("llm-wiki")` → `workflows/lint.md` for:
+Use `Skill("wiki")` → `workflows/lint.md` for:
 
 - Contradiction detection between pages
 - Content quality assessment

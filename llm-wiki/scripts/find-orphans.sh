@@ -6,6 +6,10 @@
 
 set -euo pipefail
 
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=_utils.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_utils.sh"
+
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     echo "Usage: find-orphans.sh [wiki_root]"
     echo "Find wiki pages with zero incoming [[wikilinks]]."
@@ -20,21 +24,55 @@ if [ ! -d "$WIKI_ROOT" ]; then
     exit 1
 fi
 
-# Collect all page slugs (filenames without .md) in wiki root and topics/
-SLUGS=$(find "$WIKI_ROOT" -maxdepth 1 -name "*.md" ! -path "*/.llm-wiki/*" ! -name "index.md" -exec basename {} .md \; 2>/dev/null)
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
-# Collect all wikilink targets across all wiki pages
-ALL_LINKS=$(find "$WIKI_ROOT" -maxdepth 1 -name "*.md" ! -path "*/.llm-wiki/*" -exec sed -n 's/.*\[\[\([^]|#]*\)\(|[^]]*\)*\]\].*/\1/p' {} \; 2>/dev/null | sort -u)
+SLUGS="$TMP/slugs.txt"
+ALIASES="$TMP/aliases.tsv"
+INBOUND="$TMP/inbound.txt"
+: > "$SLUGS"; : > "$ALIASES"; : > "$INBOUND"
 
-# For each slug, check if it appears as a link target
+# Collect slugs and aliases.
+#
+# `wiki_pages` excludes `.llm-wiki/` and any index file. That matters: the
+# generated index lists every page under "By Tag" as `- [[slug]] — summary`,
+# so counting the index as a link source made every page look reachable and
+# this check could never report anything.
+while IFS= read -r -d '' file; do
+    slug="$(page_slug "$file")"
+    echo "$slug" >> "$SLUGS"
+    fm_list "$(extract_frontmatter "$file")" aliases | while IFS= read -r alias; do
+        [ -n "$alias" ] && printf '%s\t%s\n' "$alias" "$slug" >> "$ALIASES"
+    done
+done < <(wiki_pages "$WIKI_ROOT")
+
+# Collect inbound links, resolving aliases and ignoring self-links.
+while IFS= read -r -d '' file; do
+    src="$(page_slug "$file")"
+    extract_links "$file" | while IFS= read -r target; do
+        [ -z "$target" ] && continue
+        resolved=""
+        if grep -qFx "$target" "$SLUGS"; then
+            resolved="$target"
+        elif [ -s "$ALIASES" ]; then
+            resolved="$(awk -F'\t' -v a="$target" '$1 == a { print $2; exit }' "$ALIASES")"
+        fi
+        if [ -n "$resolved" ] && [ "$resolved" != "$src" ]; then
+            echo "$resolved" >> "$INBOUND"
+        fi
+    done
+done < <(wiki_pages "$WIKI_ROOT")
+
+sort -u -o "$INBOUND" "$INBOUND"
+
 ORPHANS_FOUND=0
 while IFS= read -r slug; do
     [ -z "$slug" ] && continue
-    if ! echo "$ALL_LINKS" | grep -qFx "$slug"; then
+    if ! grep -qFx "$slug" "$INBOUND"; then
         echo "ORPHAN: $slug"
         ORPHANS_FOUND=1
     fi
-done <<< "$SLUGS"
+done < "$SLUGS"
 
 if [ "$ORPHANS_FOUND" -eq 0 ]; then
     echo "OK: No orphan pages found."

@@ -30,7 +30,7 @@ Look for sentinel: `./wiki/.llm-wiki/cache/ingests/$HASH.done`
 
 ### 4. Load the full workflow
 
-Use `Skill("llm-wiki")` to load the complete ingestion procedure from `workflows/ingest.md`, which covers:
+Use `Skill("wiki")` to load the complete ingestion procedure from `workflows/ingest.md`, which covers:
 
 - Language detection
 - Concept/person/article extraction

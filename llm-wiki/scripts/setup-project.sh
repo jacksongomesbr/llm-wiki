@@ -64,36 +64,46 @@ if [ ! -d "./.raw" ]; then
     echo "   ✓ Created ./.raw/ for source documents"
 fi
 
-# Step 3: Create/update CLAUDE.md
+# Step 3: Wire the wiki instructions into CLAUDE.md
 echo ""
 echo "2. Setting up CLAUDE.md..."
 
 CLAUDE_MD="./CLAUDE.md"
 WIKI_MD="$SKILL_DIR/WIKI.md"
+PROJECT_WIKI_MD="$WIKI_PATH/.llm-wiki/WIKI.md"
+IMPORT_LINE="@${PROJECT_WIKI_MD#./}"
+
+# The instructions live in the wiki, and CLAUDE.md imports them with a single
+# `@path` line. That keeps the user's own CLAUDE.md intact — the previous
+# behaviour pasted the whole file in, which made the instructions impossible to
+# update and mixed generated content into a hand-written file.
+sed "s|\./wiki/|${WIKI_PATH%/}/|g" "$WIKI_MD" > "$PROJECT_WIKI_MD"
+echo "   ✓ Wiki instructions written to $PROJECT_WIKI_MD"
 
 if [ -f "$CLAUDE_MD" ]; then
-    # If CLAUDE.md exists, check if it already has wiki instructions
-    if grep -q "LLM Wiki" "$CLAUDE_MD" 2>/dev/null; then
-        echo "   ✓ CLAUDE.md already has wiki instructions"
+    if grep -qF "$IMPORT_LINE" "$CLAUDE_MD" 2>/dev/null; then
+        echo "   ✓ CLAUDE.md already imports the wiki instructions"
+    elif grep -q "LLM Wiki" "$CLAUDE_MD" 2>/dev/null; then
+        echo "   ✓ CLAUDE.md already mentions the wiki — leaving it alone"
+        echo "     (to use the maintained version, add this line: $IMPORT_LINE)"
     else
-        # Prepend wiki instructions to existing CLAUDE.md
-        echo "   → CLAUDE.md exists, prepending wiki instructions..."
-        TEMP_MD="${CLAUDE_MD}.tmp"
         {
-            echo "<!-- LLM Wiki instructions added by setup-project.sh -->"
             echo ""
-            cat "$WIKI_MD"
+            echo "# LLM Wiki"
             echo ""
-            echo "---"
-            echo ""
-            cat "$CLAUDE_MD"
-        } > "$TEMP_MD"
-        mv "$TEMP_MD" "$CLAUDE_MD"
-        echo "   ✓ Wiki instructions prepended to CLAUDE.md"
+            echo "$IMPORT_LINE"
+        } >> "$CLAUDE_MD"
+        echo "   ✓ Appended wiki import to your existing CLAUDE.md"
     fi
 else
-    cp "$WIKI_MD" "$CLAUDE_MD"
-    echo "   ✓ Created CLAUDE.md with wiki instructions"
+    {
+        echo "# Project Instructions"
+        echo ""
+        echo "# LLM Wiki"
+        echo ""
+        echo "$IMPORT_LINE"
+    } > "$CLAUDE_MD"
+    echo "   ✓ Created CLAUDE.md importing the wiki instructions"
 fi
 
 # Step 4: Optionally configure hooks
@@ -103,61 +113,58 @@ if [ "$WITH_HOOKS" = true ]; then
 
     SETTINGS_FILE=".claude/settings.local.json"
 
-    if [ -f "$SETTINGS_FILE" ]; then
-        # Update existing settings with jq
-        if command -v jq >/dev/null 2>&1; then
-            jq --arg cmd "$SKILL_DIR/hooks/session-start.sh" \
-               '.hooks.SessionStart = [{"matcher": "", "command": $cmd}]' \
-               "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && \
-            mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE" && \
-            echo "   ✓ SessionStart hook configured in $SETTINGS_FILE"
-        else
-            echo "   ⚠ jq not found. Install jq or add the hook manually:"
-            echo "     See: https://claude.com/claude-code for hook configuration"
-        fi
-    else
-        # Create new settings file
+    # Claude Code expects each event to hold a list of matcher groups, and each
+    # group to hold a list of {type, command} entries:
+    #
+    #   "SessionStart": [ { "hooks": [ { "type": "command", "command": "…" } ] } ]
+    #
+    # A flat {"matcher": "", "command": "…"} object — what this script used to
+    # write — is silently ignored, so --with-hooks did nothing at all.
+    #
+    # The end-of-session event is `SessionEnd`; there is no `SessionStop` event,
+    # despite the script name.
+    if command -v jq >/dev/null 2>&1; then
         mkdir -p .claude
-        cat > "$SETTINGS_FILE" << SETEOF
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "command": "$SKILL_DIR/hooks/session-start.sh"
-      }
-    ]
-  }
-}
-SETEOF
-        echo "   ✓ Created $SETTINGS_FILE with SessionStart hook"
+        [ -f "$SETTINGS_FILE" ] || echo '{}' > "$SETTINGS_FILE"
+
+        jq --arg start "$SKILL_DIR/hooks/session-start.sh" \
+           --arg end   "$SKILL_DIR/hooks/session-stop.sh" \
+           '.hooks //= {}
+            | .hooks.SessionStart = [{"hooks": [{"type": "command", "command": $start}]}]
+            | .hooks.SessionEnd   = [{"hooks": [{"type": "command", "command": $end}]}]' \
+           "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && \
+        mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE" && \
+        echo "   ✓ SessionStart + SessionEnd hooks configured in $SETTINGS_FILE"
+    else
+        echo "   ⚠ jq not found — add this to .claude/settings.local.json by hand:"
+        echo ""
+        echo '   {'
+        echo '     "hooks": {'
+        echo '       "SessionStart": [{"hooks": [{"type": "command", "command":'
+        echo "         \"$SKILL_DIR/hooks/session-start.sh\"}]}],"
+        echo '       "SessionEnd": [{"hooks": [{"type": "command", "command":'
+        echo "         \"$SKILL_DIR/hooks/session-stop.sh\"}]}]"
+        echo '     }'
+        echo '   }'
     fi
 else
     echo ""
-    echo "3. (Optional) Configure SessionStart hook for richer startup context:"
+    echo "3. (Optional) Configure session hooks for richer startup context:"
     echo "   Re-run with --with-hooks, or add to .claude/settings.local.json:"
     echo ""
     echo '   {'
     echo '     "hooks": {'
-    echo '       "SessionStart": [{'
-    echo "         \"command\": \"$SKILL_DIR/hooks/session-start.sh\""
-    echo '       }]'
+    echo '       "SessionStart": [{"hooks": [{"type": "command", "command":'
+    echo "         \"$SKILL_DIR/hooks/session-start.sh\"}]}],"
+    echo '       "SessionEnd": [{"hooks": [{"type": "command", "command":'
+    echo "         \"$SKILL_DIR/hooks/session-stop.sh\"}]}]"
     echo '     }'
     echo '   }'
 fi
 
-# Step 5: Add CLAUDE.md to .gitignore if not already there
-GITIGNORE="./.gitignore"
-if [ -f "$GITIGNORE" ]; then
-    if ! grep -q "^CLAUDE.md$" "$GITIGNORE" 2>/dev/null; then
-        {
-            echo ""
-            echo "# LLM Wiki — CLAUDE.md is generated by setup-project.sh"
-            echo "CLAUDE.md"
-        } >> "$GITIGNORE"
-        echo "   ✓ Added CLAUDE.md to .gitignore"
-    fi
-fi
+# CLAUDE.md is deliberately NOT added to .gitignore. It is the user's file —
+# this script only appends a one-line import to it — and a project's CLAUDE.md
+# is normally committed so the whole team shares it.
 
 echo ""
 echo "=== Setup Complete ==="

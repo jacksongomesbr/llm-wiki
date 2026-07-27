@@ -8,7 +8,7 @@ The user ran `/wiki-graph $ARGUMENTS`.
 
 ## Procedure
 
-Use `Skill("llm-wiki")` → `workflows/graph.md` for the full procedure:
+Use `Skill("wiki")` → `workflows/graph.md` for the full procedure:
 
 1. Read all wiki pages and extract wikilinks
 2. Build nodes (pages) and edges (links between pages)

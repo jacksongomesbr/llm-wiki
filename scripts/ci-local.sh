@@ -11,11 +11,13 @@ set -euo pipefail
 
 # ── Colour helpers ──────────────────────────────────────────────────────────
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BOLD='\033[1m'
-NC='\033[0m' # No Colour
+# ANSI-C quoting ($'…') puts real escape characters in the variables, so the
+# `echo` in header() renders instead of printing '\033[1m'.
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[1;33m'
+BOLD=$'\033[1m'
+NC=$'\033[0m' # No Colour
 
 success() { printf "${GREEN}✓${NC} %s\n" "$*"; }
 warn()    { printf "${YELLOW}!${NC} %s\n" "$*"; }
@@ -36,13 +38,15 @@ cd "$PROJECT_ROOT"
 header "1/3 — ShellCheck"
 
 if command -v shellcheck &>/dev/null; then
-    echo "Running shellcheck on llm-wiki/**/*.sh + uninstall.sh..."
+    echo "Running shellcheck on every shell script in the repo..."
 
+    # quickstart.sh, scripts/ and tests/ used to be excluded from both the CI
+    # job and this script, so nothing ever linted them.
     SH_FILES=()
     while IFS= read -r -d '' f; do
         SH_FILES+=("$f")
-    done < <(find llm-wiki -name "*.sh" -print0 2>/dev/null)
-    SH_FILES+=("uninstall.sh")
+    done < <(find llm-wiki scripts tests -name "*.sh" -print0 2>/dev/null)
+    SH_FILES+=("uninstall.sh" "quickstart.sh")
 
     if [ "${#SH_FILES[@]}" -eq 0 ]; then
         warn "No .sh files found to check."
@@ -115,16 +119,31 @@ fi
 
 # ── 3. Integration tests ────────────────────────────────────────────────────
 
-header "3/3 — Integration Tests"
+header "3/3 — Tests"
 
-echo "Creating temporary wiki and running all scripts..."
+echo "Running the behavioural test suite..."
 
-INTEGRATION_OK=true
+TESTS_OK=true
+if bash "$PROJECT_ROOT/tests/run-tests.sh"; then
+    success "Behavioural tests passed"
+else
+    error "Behavioural tests failed"
+    TESTS_OK=false
+fi
+
+echo ""
+echo "Running CLI smoke tests..."
+
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
+# The smoke tests run in a subshell so `cd` does not leak. Its exit status is
+# what the parent reads — assigning INTEGRATION_OK=false *inside* the subshell
+# never reached the parent, so this section could not fail.
 (
+    set -e
     cd "$TMPDIR"
+    INTEGRATION_OK=true
 
     # Test init-wiki.sh
     echo ""
@@ -180,6 +199,26 @@ EOF
 
     success "  test pages created"
 
+    # Test build-index.sh
+    echo ""
+    echo "--- Testing build-index.sh ---"
+    if bash "$PROJECT_ROOT/llm-wiki/scripts/build-index.sh" ./wiki; then
+        success "  build-index.sh"
+    else
+        error "  build-index.sh failed"
+        INTEGRATION_OK=false
+    fi
+
+    # Test update-backlinks.sh
+    echo ""
+    echo "--- Testing update-backlinks.sh ---"
+    if bash "$PROJECT_ROOT/llm-wiki/scripts/update-backlinks.sh" ./wiki; then
+        success "  update-backlinks.sh"
+    else
+        error "  update-backlinks.sh failed"
+        INTEGRATION_OK=false
+    fi
+
     # Test validate-frontmatter.sh
     echo ""
     echo "--- Testing validate-frontmatter.sh ---"
@@ -210,12 +249,15 @@ EOF
         INTEGRATION_OK=false
     fi
 
-    # Test check-stale.sh — exit 2 when no stored hash (fresh wiki)
-    if [ -f "$PROJECT_ROOT/llm-wiki/scripts/check-stale.sh" ]; then
-        echo ""
-        echo "--- Testing check-stale.sh ---"
-        bash "$PROJECT_ROOT/llm-wiki/scripts/check-stale.sh" ./wiki || true  # exit 2 when no stored hash (fresh wiki)
-        success "  check-stale.sh (completed)"
+    # Test check-stale.sh — build-index.sh ran above, so this must be FRESH
+    echo ""
+    echo "--- Testing check-stale.sh ---"
+    bash "$PROJECT_ROOT/llm-wiki/scripts/check-stale.sh" ./wiki --store >/dev/null
+    if bash "$PROJECT_ROOT/llm-wiki/scripts/check-stale.sh" ./wiki; then
+        success "  check-stale.sh (fresh)"
+    else
+        error "  check-stale.sh did not report a fresh index"
+        INTEGRATION_OK=false
     fi
 
     # Test install.sh --help
@@ -240,15 +282,16 @@ EOF
 
     if [ "$INTEGRATION_OK" = true ]; then
         echo ""
-        success "All integration tests passed"
+        success "All smoke tests passed"
     else
         echo ""
-        error "Some integration tests failed"
+        error "Some smoke tests failed"
+        exit 1
     fi
 )
+SMOKE_EXIT=$?
 
-INTEGRATION_EXIT=$?
-if [ "$INTEGRATION_OK" = true ]; then
+if [ "$TESTS_OK" = true ] && [ "$SMOKE_EXIT" -eq 0 ]; then
     PASS=$((PASS + 1))
 else
     FAIL=$((FAIL + 1))

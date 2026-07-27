@@ -72,9 +72,15 @@ Body: Question / 问题 → Answer / 回答 → Evidence / 证据 (table) → Co
 
 Add node + edges to `$WIKI_ROOT/.llm-wiki/graph.json`.
 
-### Step 8: Regenerate Index
+### Step 8: Regenerate Index, Backlinks and Log
 
-Follow `workflows/ingest.md` Step 15 index regeneration procedure.
+```bash
+scripts/build-index.sh "$WIKI_ROOT"
+scripts/update-backlinks.sh "$WIKI_ROOT"
+scripts/log-event.sh "$WIKI_ROOT" --op save --title "{synthesis title}"
+```
+
+Never hand-write `index.md`.
 
 ### Step 9: Confirm
 

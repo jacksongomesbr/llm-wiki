@@ -5,6 +5,69 @@ All notable changes to LLM Wiki will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `scripts/build-index.sh` — regenerates `index.md` and the staleness baseline
+  deterministically. Index regeneration was previously LLM handwork on every
+  ingest and save, at a token cost proportional to the whole wiki.
+- `scripts/update-backlinks.sh` — maintains a generated `## Backlinks` section
+  on every page, with `--check` for lint runs.
+- `scripts/log-event.sh` and `.llm-wiki/log.md` — append-only chronological
+  record of ingests, queries and lints, in the grep-friendly format the
+  original LLM Wiki pattern describes.
+- `tests/run-tests.sh` — 59 behavioural assertions, no external dependencies.
+- CI now runs the test suite on both Ubuntu and macOS.
+
+### Fixed
+
+- **Orphan detection never reported anything.** `wiki/index.md` was a symlink
+  to the generated index, which lists every page under "By Tag"; it was scanned
+  as a link source, so every page appeared reachable. The symlink is gone and
+  page enumeration now excludes non-regular files.
+- **Only the last wikilink on a line was seen.** The extraction regex
+  `.*\[\[\(...\)\]\].*` is greedy, so multi-link rows — which the schema
+  mandates for evidence tables and "Related" lists — went almost entirely
+  unchecked by both the broken-link and orphan checks.
+- **`check-stale.sh` could never report "fresh".** Nothing ever wrote
+  `cache/index-hash.txt`. `build-index.sh` now writes it, and `--store` records
+  a baseline manually.
+- **Hot cache was inert.** `session-stop.sh` overwrote it with a blank template
+  on every session end, and `--with-hooks` never registered the end-of-session
+  hook at all.
+- **`--with-hooks` wrote an unrecognised hook shape.** Settings now use the
+  `[{hooks: [{type, command}]}]` form Claude Code expects, and register
+  `SessionEnd` (there is no `SessionStop` event).
+- **`tags` was never validated.** `[ -z "$v" ] || [ "$v" = "[]" ] && [ "$f" != "tags" ]`
+  parses as `(A||B) && C`, which is always false for `tags`.
+- **Body text could parse as frontmatter.** A range `sed` re-triggers on every
+  `---`, and a markdown horizontal rule is `---`.
+- **`ci-local.sh` integration tests could not fail** — the failure flag was set
+  inside a subshell the parent never read.
+- **Banners printed literal `\033[1m`** in `quickstart.sh`, `uninstall.sh` and
+  `ci-local.sh`; bash's `echo` does not interpret backslash escapes.
+- **`install.sh --update` always failed** — it looked for `.git` inside the
+  skill subdirectory rather than the repository root.
+- **`Skill("llm-wiki")` did not resolve.** The skill registers as `wiki`, per
+  its own frontmatter.
+- `sha256sum` is not present on a stock macOS install; hashing now falls back
+  to `shasum -a 256`.
+- Pages in subdirectories such as `topics/` are no longer invisible to every
+  lint script.
+- `find_wiki_root` walks up from the current directory instead of only checking
+  `./wiki`, so hooks and scripts work from a subdirectory.
+- `review.json` is initialised with both `pending` and `resolved` arrays.
+- ShellCheck now covers `quickstart.sh`, `scripts/` and `tests/`, which were
+  excluded from both CI and the local runner.
+
+### Changed
+
+- `setup-project.sh` no longer pastes instructions into your `CLAUDE.md` or
+  adds it to `.gitignore`. It writes `WIKI.md` into the wiki and appends a
+  single `@`-import line, so the file stays yours and the instructions stay
+  updatable.
+
 ## [0.1.0] — 2026-05-03
 
 ### Added

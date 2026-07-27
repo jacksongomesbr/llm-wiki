@@ -26,22 +26,27 @@ When the user asks a factual, conceptual, or knowledge-based question, **always 
 
 ### 4. After modifying wiki pages
 
-- Regenerate the index (read all pages, extract frontmatter, write to `.llm-wiki/index.md`)
-- Run `~/.claude/skills/llm-wiki/scripts/` checks if needed
+Regenerate the derived files with the scripts — never hand-write `index.md`:
+
+```bash
+~/.claude/skills/llm-wiki/scripts/build-index.sh ./wiki
+~/.claude/skills/llm-wiki/scripts/update-backlinks.sh ./wiki
+```
 
 ## Key Paths
 
 | Path | Purpose |
 |------|---------|
 | `./wiki/` | Wiki root — all markdown pages |
-| `./wiki/.llm-wiki/index.md` | Auto-generated page catalog |
+| `./wiki/.llm-wiki/index.md` | Auto-generated page catalog — never edit by hand |
+| `./wiki/.llm-wiki/log.md` | Chronological record of what happened when |
 | `./wiki/.llm-wiki/config.md` | User preferences |
 | `./wiki/.llm-wiki/review.json` | Pending review items |
 | `./.raw/` | Source documents for ingestion |
 
 ## Slash Commands
 
-Use the Skill tool: `Skill("llm-wiki")` for advanced operations:
+Use the Skill tool: `Skill("wiki")` for advanced operations:
 
 - `/wiki` — Dashboard
 - `/wiki-ingest <file>` — Ingest a source

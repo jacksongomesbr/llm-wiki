@@ -8,11 +8,13 @@ set -euo pipefail
 
 # ── Colour helpers ──────────────────────────────────────────────────────────
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BOLD='\033[1m'
-NC='\033[0m' # No Colour
+# ANSI-C quoting ($'…') puts real escape characters in the variables, so the
+# plain `echo "${BOLD}…"` lines below render instead of printing '\033[1m'.
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[1;33m'
+BOLD=$'\033[1m'
+NC=$'\033[0m' # No Colour
 
 success() { printf "${GREEN}✓${NC} %s\n" "$*"; }
 warn()    { printf "${YELLOW}!${NC} %s\n" "$*"; }

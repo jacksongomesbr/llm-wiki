@@ -10,7 +10,7 @@ This saves the current conversation answer as a permanent `synthesis` page in th
 
 ## Procedure
 
-Use `Skill("llm-wiki")` → `workflows/save-synthesis.md` for the full procedure:
+Use `Skill("wiki")` → `workflows/save-synthesis.md` for the full procedure:
 
 1. Identify the query and answer from conversation context
 2. Create `synth-YYYY-MM-DD-{slug}.md` using the synthesis template

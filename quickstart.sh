@@ -9,12 +9,15 @@ set -euo pipefail
 
 # ── Colour helpers ──────────────────────────────────────────────────────────
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+# ANSI-C quoting ($'…') puts real escape characters in the variables. With
+# plain '\033[0;31m', the many `echo "${BOLD}…"` lines below print the escape
+# sequence literally — bash's echo does not interpret backslash escapes.
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[1;33m'
+CYAN=$'\033[0;36m'
+BOLD=$'\033[1m'
+NC=$'\033[0m'
 
 success() { printf "${GREEN}✓${NC} %s\n" "$*"; }
 warn()    { printf "${YELLOW}!${NC} %s\n" "$*"; }

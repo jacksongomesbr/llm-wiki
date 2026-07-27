@@ -88,6 +88,22 @@ scripts/check-stale.sh "$WIKI_ROOT"
 
 **Severity:** ⚠️ WARNING — stale index means `/wiki-query` may miss recent pages
 
+**Fix:** `scripts/build-index.sh "$WIKI_ROOT"` — this regenerates the index and
+records the new baseline in one step.
+
+### Step Q4b: Check Backlinks
+
+```bash
+scripts/update-backlinks.sh "$WIKI_ROOT" --check
+```
+
+**What it checks:** whether each page's generated `## Backlinks` block matches
+the current link graph.
+
+**Exit codes:** 0 = up to date, 1 = pages out of date
+
+**Severity:** ⚠️ WARNING — **Fix:** drop `--check` to rewrite them.
+
 ### Step Q5: Naming Convention Check
 
 The LLM performs a quick scan (no page content reads needed):

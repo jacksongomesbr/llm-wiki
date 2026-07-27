@@ -37,9 +37,14 @@ SKILL_DST="$HOME/.claude/skills/llm-wiki"
 if [ "$UPDATE" = true ]; then
     log "Update mode: pulling latest changes from source repository..."
 
-    if [ -d "$SKILL_SRC/.git" ]; then
-        vlog "Updating source repository..."
-        (cd "$SKILL_SRC" && git pull --ff-only) || {
+    # The repository root is the parent of this skill directory, not the skill
+    # directory itself — checking "$SKILL_SRC/.git" made --update always fail.
+    # `git rev-parse` also handles the case where the clone is nested deeper.
+    REPO_ROOT="$(cd "$SKILL_SRC" && git rev-parse --show-toplevel 2>/dev/null || true)"
+
+    if [ -n "$REPO_ROOT" ]; then
+        vlog "Updating source repository at $REPO_ROOT..."
+        (cd "$REPO_ROOT" && git pull --ff-only) || {
             echo "ERROR: Failed to update source repository" >&2
             exit 1
         }
@@ -106,8 +111,12 @@ REQUIRED_FILES=(
     "SKILL.md"
     "WIKI.md"
     "WIKI_SCHEMA.md"
+    "scripts/_utils.sh"
     "scripts/init-wiki.sh"
     "scripts/setup-project.sh"
+    "scripts/build-index.sh"
+    "scripts/update-backlinks.sh"
+    "scripts/log-event.sh"
     "commands/wiki-ingest.md"
     "commands/wiki-query.md"
     "hooks/session-start.sh"

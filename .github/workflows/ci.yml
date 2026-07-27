@@ -15,8 +15,10 @@ jobs:
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@master
         with:
-          scandir: "./llm-wiki"
-          additional_files: "uninstall.sh"
+          # `scandir: ./llm-wiki` skipped quickstart.sh, scripts/ and tests/
+          # entirely. Scan the whole repo instead.
+          scandir: "."
+          additional_files: "uninstall.sh quickstart.sh"
 
   markdownlint:
     name: Markdown Lint
@@ -37,31 +39,45 @@ jobs:
             llm-wiki/**/*.md
             .github/**/*.md
 
-  integration-test:
-    name: Integration Tests
+  tests:
+    name: Tests (${{ matrix.os }})
+    # The scripts hash files and parse YAML with awk/sed; macOS ships BSD
+    # variants and no `sha256sum`, so it needs its own run.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Behavioural test suite
+        run: ./tests/run-tests.sh
+
+  smoke:
+    name: CLI Smoke Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run integration tests
+      - name: Run scripts against a temporary wiki
         run: |
           set -e
           TMPDIR="$(mktemp -d)"
           cd "$TMPDIR"
 
-          echo "=== Testing init-wiki.sh ==="
+          echo "=== init-wiki.sh ==="
           bash "$GITHUB_WORKSPACE/llm-wiki/scripts/init-wiki.sh"
 
-          echo "=== Testing hash-files.sh ==="
+          echo "=== hash-files.sh ==="
           bash "$GITHUB_WORKSPACE/llm-wiki/scripts/hash-files.sh" ./wiki
 
-          echo "=== Creating test pages ==="
+          echo "=== creating test pages ==="
           cat > ./wiki/test-concept.md << 'EOF'
           ---
           title: "Test Concept"
           type: concept
           language: en
-          created: "2026-04-30"
-          modified: "2026-04-30"
+          created: 2026-04-30
+          modified: 2026-04-30
           tags: [test, example]
           summary: "A test page for CI validation"
           ---
@@ -74,8 +90,8 @@ jobs:
           title: "Other Page"
           type: article
           language: en
-          created: "2026-04-30"
-          modified: "2026-04-30"
+          created: 2026-04-30
+          modified: 2026-04-30
           tags: [test]
           summary: "Another test page"
           ---
@@ -83,18 +99,26 @@ jobs:
           This links back to [[test-concept]].
           EOF
 
-          echo "=== Testing validate-frontmatter.sh ==="
+          echo "=== build-index.sh ==="
+          bash "$GITHUB_WORKSPACE/llm-wiki/scripts/build-index.sh" ./wiki
+
+          echo "=== validate-frontmatter.sh ==="
           bash "$GITHUB_WORKSPACE/llm-wiki/scripts/validate-frontmatter.sh" ./wiki
 
-          echo "=== Testing find-broken-links.sh ==="
-          bash "$GITHUB_WORKSPACE/llm-wiki/scripts/find-broken-links.sh" ./wiki || echo "WARNING: find-broken-links.sh found issues (non-zero exit)"
+          echo "=== find-broken-links.sh ==="
+          bash "$GITHUB_WORKSPACE/llm-wiki/scripts/find-broken-links.sh" ./wiki
 
-          echo "=== Testing find-orphans.sh ==="
-          bash "$GITHUB_WORKSPACE/llm-wiki/scripts/find-orphans.sh" ./wiki || echo "WARNING: find-orphans.sh found issues (non-zero exit)"
+          echo "=== find-orphans.sh ==="
+          bash "$GITHUB_WORKSPACE/llm-wiki/scripts/find-orphans.sh" ./wiki
 
-          echo "=== Testing install.sh --help ==="
+          echo "=== check-stale.sh (expect FRESH) ==="
+          bash "$GITHUB_WORKSPACE/llm-wiki/scripts/check-stale.sh" ./wiki
+
+          echo "=== --help flags ==="
           bash "$GITHUB_WORKSPACE/llm-wiki/install.sh" --help
+          bash "$GITHUB_WORKSPACE/uninstall.sh" --help
+          bash "$GITHUB_WORKSPACE/quickstart.sh" --help
 
           cd /tmp
           rm -rf "$TMPDIR"
-          echo "=== All integration tests passed ==="
+          echo "=== All smoke tests passed ==="

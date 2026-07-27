@@ -268,21 +268,27 @@ For each contradiction found in Phase 1:
    {"type": "contradiction", "pages": ["page-a", "page-b"], "description": "...", "detected": "YYYY-MM-DD"}
    ```
 
-### Step 15: Regenerate Index
+### Step 15: Regenerate Index and Backlinks
 
-**This is a programmatic operation — do not edit index.md by hand.**
+**This is a programmatic operation — never write `index.md` yourself.**
 
-1. Read all `*.md` files in `$WIKI_ROOT/` (excluding `.llm-wiki/` and `index.md`)
-2. Also read from `$WIKI_ROOT/topics/` if it exists
-3. Extract frontmatter from each page (between `---` delimiters)
-4. For each page, collect: slug, title, type, language, tags, summary, modified
-5. Build the index following the format in `WIKI_SCHEMA.md`:
-   - Header with timestamp and hash
-   - All Pages table
-   - By Tag sections
-   - Orphan Pages section (run `scripts/find-orphans.sh`)
-   - Review Queue section (from `review.json`)
-6. Write to `$WIKI_ROOT/.llm-wiki/index.md`
+```bash
+scripts/build-index.sh "$WIKI_ROOT"
+scripts/update-backlinks.sh "$WIKI_ROOT"
+```
+
+`build-index.sh` walks every page (including subdirectories such as
+`topics/`), extracts frontmatter, resolves the link graph through aliases, and
+writes the All Pages table, By Tag sections, Orphan Pages list and Review Queue
+in the format `WIKI_SCHEMA.md` specifies. It also records the staleness
+baseline that `check-stale.sh` compares against.
+
+`update-backlinks.sh` refreshes the generated `## Backlinks` block on each
+page. It only rewrites the region between its own markers.
+
+Rebuilding the index by reading every page yourself costs tokens proportional
+to the whole wiki on every single ingest, and drifts from the schema. Run the
+scripts.
 
 ### Step 16: Write Sentinel + Update Manifest
 
@@ -298,11 +304,15 @@ For each contradiction found in Phase 1:
    - Add entry: `{"$HASH": {"name": "source name", "date": "ISO timestamp", "language": "en|zh|bilingual", "pages_created": [...], "pages_updated": [...]}}`
    - Write back
 
-3. Store index hash for staleness detection:
+3. Record the ingest in the chronological log:
 
    ```bash
-   scripts/check-stale.sh "$WIKI_ROOT"  # computes and stores hash
+   scripts/log-event.sh "$WIKI_ROOT" --op ingest \
+     --title "{source name}" --detail "Created N pages, updated M"
    ```
+
+   (The staleness baseline was already stored by `build-index.sh` in Step 15 —
+   `check-stale.sh` only reads it.)
 
 ### Step 17: Report Summary
 
