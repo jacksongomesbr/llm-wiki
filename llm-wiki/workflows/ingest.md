@@ -134,16 +134,16 @@ Write the analysis to `$WIKI_ROOT/.llm-wiki/inbox/$HASH-analysis.md`:
 **Language detected:** {en|zh|bilingual}
 **Analyzed:** {ISO timestamp}
 
-## Source Summary / 来源摘要
+## Source Summary
 [2-3 sentence summary of the source content.]
 
-## Concepts to Extract / 待提取概念
+## Concepts to Extract
 | Concept | Action | Reason |
 |---------|--------|--------|
 | concept-name | create | New concept defined in source |
 | existing-concept | update | New information to add |
 
-## Persons to Create/Update / 待创建/更新的人物
+## Persons to Create/Update
 | Person | Action | Details |
 |--------|--------|---------|
 | name | create | Key contributor |
@@ -153,15 +153,15 @@ Write the analysis to `$WIKI_ROOT/.llm-wiki/inbox/$HASH-analysis.md`:
 |----------|------|-------|-------------|
 | ... | article | ... | ... |
 
-## Contradictions Detected / 检测到的矛盾
+## Contradictions Detected
 | Existing Page | New Claim | Conflict |
 |---------------|-----------|----------|
 | [[page-a]] | "Claim from source" | "Existing claim from page-a" |
 
-## Proposed Cross-Links / 建议的交叉链接
+## Proposed Cross-Links
 - [[page-a]] ↔ [[new-page]] — relationship description
 
-## Items for User Review / 待用户审核
+## Items for User Review
 - [ ] Decision point or question for the user
 ```
 
@@ -254,8 +254,8 @@ For each contradiction found in Phase 1:
 2. Format per `WIKI_SCHEMA.md` conventions:
 
    ```markdown
-   > ⚠️ **Contradiction / 矛盾**: [description]
-   > | Page | Claim / 主张 |
+   > ⚠️ **Contradiction**: [description]
+   > | Page | Claim |
    > |------|-------------|
    > | [[page-a]] | "Claim A" |
    > | [[page-b]] | "Claim B — contradicts A" |
@@ -319,25 +319,25 @@ scripts.
 Present a clean summary to the user:
 
 ```
-# Ingest Complete / 摄取完成
+# Ingest Complete
 
 **Source:** {source name}
 **Language:** {en|zh|bilingual}
 
-## Created / 新建
+## Created
 | File | Type | Title |
 |------|------|-------|
 | ... | concept | ... |
 | ... | article | ... |
 
-## Updated / 更新
+## Updated
 | File | What changed |
 |------|-------------|
 
-## Contradictions / 矛盾
+## Contradictions
 {count} new contradictions flagged — run /wiki-lint to review
 
-## Next Steps / 下一步
+## Next Steps
 - Run /wiki-lint to check health
 - Use /wiki-query to test the new knowledge
 ```

@@ -48,7 +48,7 @@ Create a self-contained HTML file at `$WIKI_ROOT/.llm-wiki/graph.html` with:
 ### Step 5: Present
 
 ```
-# Knowledge Graph / 知识图谱
+# Knowledge Graph
 **Nodes:** {N} | **Edges:** {N} | **Orphans:** {N} | **Hubs:** {N}
 Graph: wiki/.llm-wiki/graph.html | Data: wiki/.llm-wiki/graph.json
 ```

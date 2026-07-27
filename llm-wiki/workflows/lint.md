@@ -132,15 +132,15 @@ The LLM performs a quick scan (no page content reads needed):
 After running Q1-Q5, present:
 
 ```
-# Wiki Health Report / 维基健康报告
+# Wiki Health Report
 
-## Errors / 错误 ({N})
+## Errors ({N})
 | Check | Details |
 |-------|---------|
 | Frontmatter | ... |
 | Broken Links | ... |
 
-## Warnings / 警告 ({N})
+## Warnings ({N})
 | Check | Details |
 |-------|---------|
 | Orphan Pages | ... |
@@ -267,33 +267,33 @@ Add to `$WIKI_ROOT/.llm-wiki/review.json`.
 ## Full Lint Report
 
 ```
-# Full Wiki Health Report / 完整维基健康报告
+# Full Wiki Health Report
 
-## Structural / 结构 (from quick lint)
+## Structural (from quick lint)
 {Same table as quick lint report}
 
-## Contradictions / 矛盾 ({N})
+## Contradictions ({N})
 | Pages | Conflict | Severity |
 |-------|----------|----------|
 | [[a]] vs [[b]] | ... | error |
 
-## Quality Issues / 质量问题 ({N})
+## Quality Issues ({N})
 | Page | Issue | Severity |
 |------|-------|----------|
 | [[x]] | Shallow (< 200 words) | warning |
 | [[y]] | Not updated in 90 days | info |
 
-## Language Issues / 语言问题 ({N})
+## Language Issues ({N})
 | Page | Issue |
 |------|-------|
 | [[z]] | Tagged 'en' but body is Chinese |
 
-## Knowledge Gaps / 知识缺口 ({N})
+## Knowledge Gaps ({N})
 | Gap | Priority | Suggested Source |
 |-----|----------|-----------------|
 | Missing page for X | high | [source suggestion] |
 
-## Drift / 概念漂移 ({N})
+## Drift ({N})
 | Old Page | New Page | Issue |
 |----------|----------|-------|
 | [[old]] | [[new]] | Definition changed |
@@ -303,7 +303,7 @@ Add to `$WIKI_ROOT/.llm-wiki/review.json`.
 - Review queue: {N} items added
 - Next full lint suggested after {N} more ingests
 
-## Actions / 建议操作
+## Actions
 1. [Highest priority fix]
 2. [Next fix]
 3. Run /wiki-review to process the queue

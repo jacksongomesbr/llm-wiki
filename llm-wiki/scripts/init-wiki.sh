@@ -85,13 +85,13 @@ fi
 # Create initial hot-cache.md if it doesn't exist
 if [ ! -f "$WIKI_ROOT/.llm-wiki/cache/hot-cache.md" ] || [ "$FORCE" = true ]; then
     cat > "$WIKI_ROOT/.llm-wiki/cache/hot-cache.md" << 'HOTEOF'
-# Hot Cache / 热缓存
+# Hot Cache
 **Last session:** (none)
 
-## Recent Activity / 最近活动
+## Recent Activity
 *First session — no activity yet.*
 
-## Pending Review / 待审核
+## Pending Review
 *No pending reviews.*
 HOTEOF
     echo "  ✓ cache/hot-cache.md"

@@ -11,18 +11,18 @@ summary: ""
 
 # {Full Name}
 
-## Bio / 简介
+## Bio
 <!-- Brief biography — 3-5 sentences. -->
 
-## Key Contributions / 主要贡献
+## Key Contributions
 
 -
 
-## Related Work / 相关工作
+## Related Work
 
 - [[related-concept]] — their role
 - [[related-person]] — collaboration or influence
 
-## Links / 链接
+## Links
 
 -

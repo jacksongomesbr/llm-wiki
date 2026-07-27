@@ -27,7 +27,7 @@ If there was no recent query: ask "What question and answer should I save?"
 
 1. Extract key terms from the question
 2. Convert to lowercase kebab-case
-3. Remove question words (what, how, why, 什么, 怎么, 为什么)
+3. Remove question words (what, how, why, when, which)
 4. Keep under 60 characters
 5. Prefix: `synth-{YYYY-MM-DD}-{slug}`
 
@@ -60,7 +60,7 @@ confidence: {high|medium|low}
 ---
 ```
 
-Body: Question / 问题 → Answer / 回答 → Evidence / 证据 (table) → Contradictions / 矛盾 → Gaps / 知识缺口 → Confidence / 置信度
+Body: Question → Answer → Evidence (table) → Contradictions → Gaps → Confidence
 
 ### Step 6: Cross-Link
 
@@ -85,7 +85,7 @@ Never hand-write `index.md`.
 ### Step 9: Confirm
 
 ```
-# Synthesis Saved / 综合页面已保存
+# Synthesis Saved
 **File:** synth-{date}-{slug}.md
 **Title:** {title}
 **Based on:** {N} wiki pages

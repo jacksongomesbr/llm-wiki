@@ -1,5 +1,5 @@
 ---
-title: "{Title / 标题}"
+title: "{Title}"
 type: article
 language: en | zh | bilingual
 created: YYYY-MM-DD
@@ -8,18 +8,18 @@ tags: []
 summary: ""
 ---
 
-# {Title / 标题}
+# {Title}
 
-## Summary / 摘要
+## Summary
 <!-- 2-4 sentence overview. -->
 
-## Content / 内容
+## Content
 <!-- Main body — flexible format depending on content type. -->
 
-## Key Takeaways / 关键收获
+## Key Takeaways
 
 -
 
-## Related / 关联
+## Related
 
 - [[related-slug]] — connection

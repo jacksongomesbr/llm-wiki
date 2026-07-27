@@ -63,7 +63,7 @@ mkdir -p "$(dirname "$LOG")"
 
 if [ ! -f "$LOG" ]; then
     cat > "$LOG" << 'LOGEOF'
-# Wiki Log / 维基日志
+# Wiki Log
 <!-- Append-only. Newest entries at the bottom. -->
 <!-- Entry format: ## [YYYY-MM-DD] operation | title -->
 

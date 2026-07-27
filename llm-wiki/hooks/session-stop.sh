@@ -42,7 +42,7 @@ if [ -f "$HOT_CACHE" ]; then
 fi
 
 cat > "$HOT_CACHE" << HOTEOF
-# Hot Cache / 热缓存
+# Hot Cache
 **Last session:** $NOW
 
 <!--
@@ -50,17 +50,17 @@ Written during the session by wiki operations, read back by session-start.sh.
 Keep it short — it is injected into every new session's context.
 -->
 
-## Recent Activity / 最近活动
+## Recent Activity
 
-## Pages Read / 已读页面
+## Pages Read
 
-## Pages Written / 已写页面
+## Pages Written
 
-## Queries Asked / 查询记录
+## Queries Asked
 
-## Pending / 待处理
+## Pending
 
-## Notes / 备注
+## Notes
 HOTEOF
 
 echo "Hot cache created: $HOT_CACHE"

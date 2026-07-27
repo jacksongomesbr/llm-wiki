@@ -87,7 +87,7 @@ if [ -f "$INDEX" ]; then
     # Tag cloud
     TAGS=$(grep '^### ' "$INDEX" 2>/dev/null | sed 's/^### //' | sed 's/ ([0-9]* pages)//' || true)
     if [ -n "$TAGS" ]; then
-        echo "### Available Topics / 可用主题"
+        echo "### Available Topics"
         echo "$TAGS" | while read -r tag; do
             echo "- \`$tag\`"
         done
@@ -110,7 +110,7 @@ fi
 
 # Hot cache from previous session
 if [ -f "$HOT_CACHE" ]; then
-    echo "### Context from Previous Session / 上次会话上下文"
+    echo "### Context from Previous Session"
     cat "$HOT_CACHE"
     echo ""
 fi

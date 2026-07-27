@@ -73,6 +73,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The skill is now English-only.** Every `English / 中文` dual heading has been
+  removed from the templates, schema, workflows, hook output and generated
+  files (index, log, hot cache, backlinks blocks). The `language` frontmatter
+  field and its `en | zh | bilingual` enum are unchanged, and CJK detection
+  during ingest still runs — page *content* can still be in any language, but
+  the structural headings are English so pages stay comparable across a wiki.
+  Existing pages with bilingual headings keep working; they are not rewritten.
 - `setup-project.sh` no longer pastes instructions into your `CLAUDE.md` or
   adds it to `.gitignore`. It writes `WIKI.md` into the wiki and appends a
   single `@`-import line, so the file stays yours and the instructions stay

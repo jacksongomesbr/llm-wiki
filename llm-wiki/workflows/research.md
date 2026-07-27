@@ -177,25 +177,25 @@ scripts/log-event.sh "$WIKI_ROOT" --op research \
 ## Report
 
 ```
-# Research Complete / 研究完成
+# Research Complete
 
 **Topics:** {list}
 **Sources archived:** {N} → .raw/
 **Pages created:** {M} | **Updated:** {K}
 
-## Sources / 来源
+## Sources
 | File | Tier | URL |
 |------|------|-----|
 | ... | primary | ... |
 
-## Contradictions Resolved / 已解决的矛盾
+## Contradictions Resolved
 | Question | Finding |
 |----------|---------|
 
-## Gaps / 知识缺口
+## Gaps
 - {what could not be verified, and why}
 
-## Next / 下一步
+## Next
 - /wiki-query to test the new knowledge
 - /wiki-lint --full to check consistency
 ```

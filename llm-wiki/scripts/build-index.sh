@@ -174,7 +174,7 @@ INDEX="$META_DIR/index.md"
         echo ""
     fi
 
-    echo "## Orphan Pages / 孤立页面"
+    echo "## Orphan Pages"
     echo ""
     ORPHAN_COUNT=0
     if [ "$PAGE_COUNT" -gt 0 ]; then
@@ -188,7 +188,7 @@ INDEX="$META_DIR/index.md"
     [ "$ORPHAN_COUNT" -eq 0 ] && echo "*None.*"
     echo ""
 
-    echo "## Review Queue / 审核队列"
+    echo "## Review Queue"
     echo ""
     REVIEW_JSON="$META_DIR/review.json"
     PRINTED_REVIEW=false

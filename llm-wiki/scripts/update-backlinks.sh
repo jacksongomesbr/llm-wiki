@@ -94,7 +94,7 @@ while IFS= read -r -d '' file; do
     {
         echo "$BEGIN_MARK"
         echo ""
-        echo "## Backlinks / 反向链接"
+        echo "## Backlinks"
         echo ""
         sources="$(awk -F'\t' -v t="$slug" '$1 == t { print $2 }' "$EDGES" | sort -u)"
         if [ -z "$sources" ]; then

@@ -214,12 +214,17 @@ File: `synth-YYYY-MM-DD-{slug}.md`
 
 ---
 
-## Bilingual Support
+## Language Handling
 
-- **Auto-detection**: CJK character ratio determines `zh` / `en` / `bilingual`
-- **Page titles**: `"English / 中文"` format for bilingual pages
-- **Cross-language wikilinks**: `aliases` field provides translations for link resolution
-- **Query matching**: Prefers same-language pages, falls back across languages
+The skill's own output — headings, templates, reports — is English.
+
+- **`language` field**: every page records `en`, `zh` or `bilingual`
+- **Auto-detection**: CJK character ratio sets the field during ingest
+- **Cross-language wikilinks**: `aliases` provides alternate names for link resolution
+- **Query matching**: prefers same-language pages, falls back across languages
+
+Page *content* can be in any language; the structural headings are English so
+that pages stay comparable across the wiki.
 
 ---
 
@@ -305,7 +310,7 @@ scripts/ci-local.sh                  Run the full CI pipeline locally
 | **Incremental caching** | SHA-256 sentinel files prevent re-work. |
 | **Two-phase ingest** | Human checkpoint between analysis and generation. |
 | **Hot cache** | Multi-session context bridge via SessionStop/SessionStart hooks. |
-| **True bilingual** | `language` field, CJK detection, cross-language aliases. |
+| **Language-aware** | `language` field, CJK detection, cross-language aliases; English structure. |
 | **Lint separation** | Quick (bash, free) vs Full (LLM, thorough) — pay only when needed. |
 | **Backlinks in the file** | Generated `## Backlinks` block, so the graph is readable without Obsidian. |
 | **Chronological log** | `log.md` records every ingest, query and lint. `grep '^## \[' log.md \| tail -5`. |

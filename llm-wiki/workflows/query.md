@@ -108,18 +108,18 @@ Combine evidence from all read pages into a coherent answer:
 Present the answer in this structure:
 
 ```markdown
-## Answer / 回答
+## Answer
 
 [Direct, concise answer to the question.]
 
-## Evidence / 证据
+## Evidence
 
 | Source Page | Key Point | Relevance | Confidence |
 |-------------|-----------|-----------|------------|
 | [[page-a]] | Key claim from this page | high | high |
 | [[page-b]] | Supporting detail | medium | medium |
 
-## Contradictions / 矛盾
+## Contradictions
 
 *(If applicable)*
 
@@ -131,16 +131,16 @@ Present the answer in this structure:
 >
 > *Recommendation: [which seems more reliable and why]*
 
-## Knowledge Gaps / 知识缺口
+## Knowledge Gaps
 
 - [What the wiki doesn't know about this topic]
 - [Suggestions for sources that could fill the gap]
 
-## Confidence / 置信度: {high|medium|low}
+## Confidence: {high|medium|low}
 
 [1-2 sentence rationale.]
 
-## Pages Consulted / 查阅的页面
+## Pages Consulted
 
 - [[page-a]]
 - [[page-b]]

@@ -118,18 +118,18 @@ When the user invokes `/wiki`, do the following:
 5. **Present the dashboard**:
 
 ```
-# Wiki Dashboard / 维基面板
+# Wiki Dashboard
 
 **Total pages:** {N}
 **Last updated:** {timestamp}
 **Index status:** {fresh|stale — run /wiki-lint}
 
-## Recent Activity / 最近活动
+## Recent Activity
 | Date | Operation | Title |
 |------|-----------|-------|
 ... (from log if exists, or index modified dates)
 
-## Page Types / 页面类型
+## Page Types
 | Type | Count |
 |------|-------|
 | concept | N |
@@ -137,10 +137,10 @@ When the user invokes `/wiki`, do the following:
 | person | N |
 | synthesis | N |
 
-## Pending Review / 待审核 ({N})
+## Pending Review ({N})
 ... (from review.json)
 
-## Active Topics / 活跃主题
+## Active Topics
 ... (from hot-cache if available)
 ```
 
@@ -151,4 +151,4 @@ When the user invokes `/wiki`, do the following:
 - **Incremental caching**: SHA-256 of sources prevents re-ingesting unchanged files.
 - **Two-phase ingest**: Phase 1 = analysis (reviewable by user), Phase 2 = page generation.
 - **Hot cache**: Bridges context between sessions so you don't start cold.
-- **True bilingual**: Every page has a `language` field; templates support both zh and en.
+- **Language-aware**: Every page records a `language` field, detected from the source. Structural headings are English so pages stay comparable.
