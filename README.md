@@ -288,7 +288,7 @@ llm-wiki/
 │   ├── wiki-save.md                 /wiki-save
 │   ├── wiki-graph.md                /wiki-graph
 │   └── wiki-review.md               /wiki-review
-├── templates/                       Page templates (article, concept, person, synthesis)
+├── templates/                       Page templates + the graph view
 ├── scripts/                         Deterministic bash operations
 │   ├── _utils.sh                    Shared helpers (link/frontmatter parsing, hashing)
 │   ├── setup-project.sh             ★ One-stop project setup
@@ -301,6 +301,7 @@ llm-wiki/
 │   ├── provenance.sh                Trace page → sources and source → pages
 │   ├── convert-source.sh            PDF/docx/epub/html → markdown for ingestion
 │   ├── vendor-d3.sh                 Vendor D3 for offline knowledge graphs
+│   ├── build-graph.sh               ★ Generate graph.json + graph.html
 │   ├── archive-source.sh            Write fetched web content to .raw/ with provenance
 │   ├── hash-files.sh                SHA-256 hash source files
 │   ├── check-stale.sh               Index freshness check

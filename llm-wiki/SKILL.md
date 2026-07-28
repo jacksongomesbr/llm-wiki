@@ -88,6 +88,7 @@ When you are invoked (via `Skill("wiki")`), determine which workflow to follow b
 | `scripts/archive-source.sh` | Write fetched web content to `.raw/` with provenance |
 | `scripts/bib-add.sh` | **Only writer of `references.bib`** — dedupes, returns a stable key |
 | `scripts/validate-bib.sh` | Check citations resolve and entries are cited |
+| `scripts/build-graph.sh` | **Generate the knowledge graph** — the only supported way |
 | `scripts/provenance.sh` | Trace what a page rests on, or what a source produced |
 | `scripts/convert-source.sh` | Convert PDF/docx/epub/html into markdown for ingestion |
 | `scripts/vendor-d3.sh` | Vendor D3 so the knowledge graph works offline |

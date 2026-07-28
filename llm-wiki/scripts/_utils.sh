@@ -298,6 +298,25 @@ normalise_url() {
     '
 }
 
+# ── JSON ────────────────────────────────────────────────────────────────────
+
+# json_escape <string> — Escape a value for embedding in a JSON string.
+# Handles the characters JSON actually forbids raw: backslash, double quote and
+# control characters. UTF-8 passes through untouched.
+json_escape() {
+    printf '%s' "${1:-}" | awk '
+        BEGIN { RS = "\0" }
+        {
+            gsub(/\\/, "\\\\")
+            gsub(/"/, "\\\"")
+            gsub(/\t/, "\\t")
+            gsub(/\r/, "\\r")
+            gsub(/\n/, "\\n")
+            printf "%s", $0
+        }
+    '
+}
+
 # ── Aggregate hashes ────────────────────────────────────────────────────────
 
 # wiki_frontmatter_hash <wiki_root> — Stable hash over every page's

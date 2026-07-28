@@ -1022,6 +1022,122 @@ fi
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
+# build-graph.sh
+# ════════════════════════════════════════════════════════════════════════════
+
+if should_run "graph"; then
+describe "build-graph.sh"
+
+W="$(new_wiki)"
+valid_page "$W" "hub" "Links to [[leaf]] and [[lonely]]."
+valid_page "$W" "leaf" "A leaf."
+valid_page "$W" "lonely" "Nothing links here... except hub."
+valid_page "$W" "island" "Disconnected from everything."
+bash "$SCRIPTS/build-graph.sh" "$W" --quiet
+J="$W/.llm-wiki/graph.json"
+
+if command -v jq >/dev/null 2>&1; then
+    assert_eq "$(jq -e 'has("nodes") and has("edges") and has("components")' "$J" >/dev/null && echo ok)" \
+        "ok" "writes valid JSON with the expected keys"
+    assert_eq "$(jq '[.nodes[] | select(.type != "source")] | length' "$J")" "4" "one node per page"
+
+    # THE test that matters: three parsers must not disagree about the graph.
+    assert_eq "$(jq '[.nodes[] | select(.type != "source" and .inDegree == 0)] | length' "$J")" \
+        "$(bash "$SCRIPTS/find-orphans.sh" "$W" | grep -c '^ORPHAN:' || true)" \
+        "orphan count agrees with find-orphans.sh"
+    bash "$SCRIPTS/build-index.sh" "$W" --quiet
+    assert_eq "$(jq '[.nodes[] | select(.type != "source")] | length' "$J")" \
+        "$(sed -n 's/^\*\*Total pages:\*\* *//p' "$W/.llm-wiki/index.md")" \
+        "page count agrees with build-index.sh"
+
+    # `island` links to nothing and nothing links to it, so it is its own component.
+    assert_eq "$(jq -r '.components' "$J")" "2" "counts connected components"
+
+    # A hub is what many pages point TO. The old spec had this backwards,
+    # defining it by outgoing links, which describes an index page instead.
+    assert_eq "$(jq -r '.nodes[] | select(.id=="hub") | .outDegree' "$J")" "2" "counts outgoing links"
+    assert_eq "$(jq -r '.nodes[] | select(.id=="hub") | .isHub' "$J")" "false" \
+        "a page with many outgoing links is not a hub"
+
+    # Self-links must not rescue a page from orphanhood.
+    W2="$(new_wiki)"
+    valid_page "$W2" "selfish" "I link to [[selfish]]."
+    bash "$SCRIPTS/build-graph.sh" "$W2" --quiet
+    assert_eq "$(jq -r '.nodes[] | select(.id=="selfish") | .inDegree' "$W2/.llm-wiki/graph.json")" "0" \
+        "a self-link is not an inbound link"
+
+    # Empty fields must not shift later columns. Tab is IFS whitespace, so a
+    # tab-separated record silently collapsed empty fields and misaligned
+    # everything after the first missing one.
+    W3="$(new_wiki)"
+    cat > "$W3/noclass.md" <<'EOF'
+---
+title: "Real Title"
+type: note
+language: en
+created: 2026-01-01
+modified: 2026-01-01
+tags: [t]
+summary: "Real summary"
+---
+# Real Title
+EOF
+    bash "$SCRIPTS/build-graph.sh" "$W3" --quiet
+    N="$W3/.llm-wiki/graph.json"
+    assert_eq "$(jq -r '.nodes[0].title' "$N")" "Real Title" "an absent class does not shift the columns"
+    assert_eq "$(jq -r '.nodes[0].summary' "$N")" "Real summary" "summary lands in the summary field"
+    assert_eq "$(jq -r '.nodes[0].class' "$N")" "null" "an absent class is null, not the next field"
+
+    # Bibliography entries become a second node layer.
+    W4="$(new_wiki)"
+    K="$(bash "$SCRIPTS/bib-add.sh" --bib "$W4/references.bib" --title "A Source" \
+         --year 2020 --url "https://example.com/s")"
+    cat > "$W4/cites.md" <<EOF
+---
+title: "Cites"
+type: concept
+language: en
+created: 2026-01-01
+modified: 2026-01-01
+tags: [t]
+summary: "cites a source"
+references: [$K]
+---
+# Cites
+Claim [@$K].
+EOF
+    bash "$SCRIPTS/build-graph.sh" "$W4" --quiet
+    B="$W4/.llm-wiki/graph.json"
+    assert_eq "$(jq -r '[.nodes[] | select(.type=="source")] | length' "$B")" "1" \
+        "bibliography entries become source nodes"
+    assert_eq "$(jq -r '[.edges[] | select(.kind=="cite")] | length' "$B")" "1" \
+        "citations become cite edges"
+    assert_eq "$(jq -r '.nodes[] | select(.type=="source") | .id' "$B")" "bib:$K" \
+        "source ids are namespaced so they cannot collide with a slug"
+fi
+
+# HTML rendering
+assert_eq "$([ -f "$W/.llm-wiki/graph.html" ] && echo yes || echo no)" "yes" "writes graph.html"
+H="$(cat "$W/.llm-wiki/graph.html")"
+assert_not_contains "$H" "__GRAPH_DATA__" "substitutes the data placeholder"
+assert_not_contains "$H" "__D3_SCRIPT_TAG__" "substitutes the D3 placeholder"
+assert_not_contains "$H" "__WIKI_NAME__" "substitutes the name placeholder"
+assert_eq "$(grep -c '"generated":' "$W/.llm-wiki/graph.html")" "1" \
+    "injects the graph data exactly once"
+assert_contains "$H" "integrity=\"sha384-" "pins the CDN fallback with Subresource Integrity"
+
+bash "$SCRIPTS/vendor-d3.sh" "$W" >/dev/null 2>&1 || true
+if [ -f "$W/.llm-wiki/vendor/d3.v7.min.js" ]; then
+    bash "$SCRIPTS/build-graph.sh" "$W" --quiet
+    assert_contains "$(cat "$W/.llm-wiki/graph.html")" 'src="vendor/d3.v7.min.js"' \
+        "prefers a vendored D3 over the CDN"
+fi
+
+bash "$SCRIPTS/build-graph.sh" "$W" --quiet --no-html
+assert_eq "$(jq -e 'has("nodes")' "$J" >/dev/null && echo ok)" "ok" "--no-html still writes graph.json"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
 # Summary
 # ════════════════════════════════════════════════════════════════════════════
 

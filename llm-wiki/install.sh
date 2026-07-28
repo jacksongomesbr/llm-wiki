@@ -123,6 +123,7 @@ REQUIRED_FILES=(
     "scripts/provenance.sh"
     "scripts/convert-source.sh"
     "scripts/vendor-d3.sh"
+    "scripts/build-graph.sh"
     "commands/wiki-ingest.md"
     "commands/wiki-query.md"
     "commands/wiki-research.md"
@@ -141,6 +142,7 @@ REQUIRED_FILES=(
     "templates/project.md"
     "templates/area.md"
     "templates/synthesis.md"
+    "templates/graph.html"
 )
 ALL_OK=true
 for f in "${REQUIRED_FILES[@]}"; do

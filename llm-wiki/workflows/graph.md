@@ -1,82 +1,102 @@
-# /wiki-graph — Knowledge Graph Visualization
+# /wiki-graph — Knowledge Graph
 
-**Purpose**: Generate an interactive D3.js force-directed graph showing the wiki's page network.
+**Purpose**: Generate an interactive graph of the wiki, with a detail panel.
 
 **Invoked by**: `/wiki-graph` → SKILL.md routes here
 
 ---
 
+## Design Rationale
+
+`★ Insight ─────────────────────────────────────`
+
+- The graph is **derived data**, like the index. It used to be hand-written by
+  the LLM on every invocation, which made it non-deterministic, untestable,
+  costly in proportion to wiki size, and free to disagree with the rest of the
+  toolchain about what links to what. It is now a script plus a template.
+- `build-graph.sh` reuses `extract_links` and the frontmatter helpers from
+  `_utils.sh`, so the graph agrees with `build-index.sh` and `find-orphans.sh`
+  **by construction**. The test suite asserts that agreement — three parsers
+  disagreeing is exactly how this drifts.
+- A hub is a page many others point **to**, not one that links out a lot. The
+  latter is an index page. Hubs are `inDegree >= 5`.
+`─────────────────────────────────────────────────`
+
+---
+
 ## Procedure
 
-### Step 1: Extract Graph Data
-
-List all pages and extract node/edge data:
+### Step 1: Build
 
 ```bash
-find "$WIKI_ROOT" -maxdepth 1 -name "*.md" ! -path "*/.llm-wiki/*" ! -name "index.md"
+scripts/build-graph.sh "$WIKI_ROOT"
 ```
 
-Build structure:
+That is the whole operation. It writes:
 
-```json
-{
-  "nodes": [{"id": "slug", "title": "Display Title", "type": "note|concept|entity|project|area|synthesis", "class": "person|organization|tool|place|work|event|null", "status": "active|reference|someday|archived|stub", "language": "en|zh|bilingual", "tags": ["tag1"], "incomingLinks": N, "outgoingLinks": N}],
-  "edges": [{"source": "page-a", "target": "page-b"}]
-}
+- `$WIKI_ROOT/.llm-wiki/graph.json` — nodes, edges, degrees, components
+- `$WIKI_ROOT/.llm-wiki/graph.html` — the interactive view
+
+Options: `--quiet`, `--no-html` (data only).
+
+**Do not hand-write either file.** To change how the graph looks or behaves,
+edit `templates/graph.html` in the skill; the generated file is overwritten on
+every build.
+
+### Step 2: Offer to vendor D3
+
+If the output reports `D3: CDN`, suggest:
+
+```bash
+scripts/vendor-d3.sh "$WIKI_ROOT"
 ```
 
-### Step 2: Compute Derived Metrics
+An unpinned CDN script inside a file the user opens locally is remote code
+execution in a trusted context, and the graph is useless without a network. The
+CDN fallback is pinned with Subresource Integrity, but a local copy is better.
 
-- `incomingLinks`, `outgoingLinks`, `isOrphan`, `isHub` (outgoingLinks > 5), `centrality`
-
-### Step 3: Write graph.json
-
-Write to `$WIKI_ROOT/.llm-wiki/graph.json`.
-
-### Step 4: Generate graph.html
-
-Create a self-contained HTML file at `$WIKI_ROOT/.llm-wiki/graph.html` with:
-
-- Dark-themed D3.js v7 force-directed graph. **Load D3 in this order:**
-  1. If `$WIKI_ROOT/.llm-wiki/vendor/d3.v7.min.js` exists, inline it or link it
-     relatively — the graph then works offline and pulls in no third-party code.
-  2. Otherwise fall back to the CDN **with Subresource Integrity pinned**:
-
-     ```html
-     <script src="https://d3js.org/d3.v7.min.js"
-             integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"
-             crossorigin="anonymous"></script>
-     ```
-
-  Suggest `scripts/vendor-d3.sh` to the user when falling back: an unpinned
-  CDN script in a file they open locally is arbitrary remote code execution,
-  and the graph is useless without a network.
-- Color-coded nodes by `type`: concept=#5b9bd5, note=#ed7d31, entity=#70ad47,
-  synthesis=#ffc000, project=#c0504d, area=#8064a2
-- Entities are additionally shaped by `class` (person=circle, organization=square,
-  tool=triangle, place=diamond, work=hexagon, event=star), so the two axes of the
-  model stay visible in the graph
-- Node radius: `5 + min(incomingLinks, 15)` px
-- Tooltips on hover: title, type, language, link counts, tags
-- Draggable nodes, zoom/pan on SVG
-- Legend for type colors
-- Graph data embedded as inline JavaScript variable
-
-### Step 5: Present
+### Step 3: Present
 
 ```
 # Knowledge Graph
-**Nodes:** {N} | **Edges:** {N} | **Orphans:** {N} | **Hubs:** {N}
-Graph: wiki/.llm-wiki/graph.html | Data: wiki/.llm-wiki/graph.json
+**Pages:** {N} | **Links:** {N} | **Citations:** {N} | **Components:** {N}
+Graph: {WIKI_ROOT}/.llm-wiki/graph.html
 ```
 
-Offer to open with `xdg-open` or `open`.
+Offer to open it (`open` on macOS, `xdg-open` on Linux).
+
+**Components is the number worth commenting on.** More than one means the wiki
+has broken into islands with no path between them — usually a sign that a
+topic was ingested without being cross-linked to anything already there.
+
+---
+
+## What the View Provides
+
+| Feature | Notes |
+|---------|-------|
+| Colour by `type`, shape by `class` | The two model axes stay visible at once |
+| Right panel | Graph stats; selected node's title, summary, frontmatter, backlinks, outlinks, sources |
+| Search + type filters | Essential past ~40 nodes |
+| Focus depth (0-3) | Dims everything beyond N hops from the selection |
+| Citation layer | Toggles bibliography entries in as a second node layer |
+| Pin / drag | Double-click pins; pinned positions survive a rebuild |
+| Deep links | `graph.html#node=apple-inc` |
+| Open page | Relative link to the actual `.md` |
+| Light/dark | Follows the system, with a manual toggle |
+
+Bibliography nodes are namespaced `bib:<citekey>` so they can never collide
+with a page slug, and they appear only when the citation layer is on.
 
 ---
 
 ## Edge Cases
 
-- **Empty wiki**: "No pages to graph. Ingest sources first."
-- **Single page**: Generate single-node graph; suggest adding more pages
-- **>50 pages**: Offer tag filtering; warn about simulation performance
-- **Stale graph.json**: Always regenerate from live data, never reuse
+- **Empty wiki**: the script still writes a valid empty graph; say there is
+  nothing to show and suggest ingesting a source.
+- **Large wiki (>200 pages)**: the force simulation gets heavy. Suggest the type
+  filters and focus depth rather than turning the graph off.
+- **`prefers-reduced-motion`**: the view settles the simulation without
+  animating; no action needed.
+- **Stale graph**: always rebuild, never reuse `graph.json` as a source of
+  truth for anything but pinned positions.
