@@ -890,6 +890,48 @@ assert_not_contains "$(cat "$W2/.llm-wiki/index.md")" "## Projects" \
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
+# regressions in generated output
+# ════════════════════════════════════════════════════════════════════════════
+
+if should_run "regress"; then
+describe "build-index.sh regressions"
+
+# A project page in a subdirectory had its `area` read back empty, because the
+# Projects view rebuilt a path from the slug ("$WIKI_ROOT/$slug.md") instead of
+# using the metadata already collected. Same defect class as the old
+# -maxdepth 1 scans.
+W="$(new_wiki)"
+mkdir -p "$W/topics"
+for loc in "topics/deep" "flat"; do
+    cat > "$W/$loc.md" <<EOF
+---
+title: "$(basename "$loc")"
+type: project
+language: en
+created: 2026-01-01
+modified: 2026-01-01
+tags: [t]
+summary: "project at $loc"
+status: active
+area: "[[ops]]"
+---
+# $(basename "$loc")
+EOF
+done
+bash "$SCRIPTS/build-index.sh" "$W" --quiet
+PROJECTS="$(sed -n '/^## Projects/,/^## Orphan/p' "$W/.llm-wiki/index.md")"
+assert_contains "$PROJECTS" "[[flat]] | active | [[ops]]" "a root project keeps its area"
+assert_contains "$PROJECTS" "[[deep]] | active | [[ops]]" "a subdirectory project keeps its area"
+
+# The wiki's schema.md is a copy and drifted on every skill upgrade.
+W="$(new_wiki)"
+echo "STALE" > "$W/.llm-wiki/schema.md"
+bash "$SCRIPTS/build-index.sh" "$W" --quiet
+assert_eq "$(cmp -s "$PROJECT_ROOT/llm-wiki/WIKI_SCHEMA.md" "$W/.llm-wiki/schema.md" && echo same || echo differs)" \
+    "same" "a drifted schema copy is refreshed on index rebuild"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
 # Summary
 # ════════════════════════════════════════════════════════════════════════════
 

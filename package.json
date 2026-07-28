@@ -1,6 +1,6 @@
 {
   "name": "llm-wiki",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Claude Code skill: builds and maintains a persistent, interlinked markdown wiki from source documents. Based on Andrej Karpathy's LLM Wiki pattern.",
   "keywords": [
     "claude-code-skill",

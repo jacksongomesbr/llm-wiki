@@ -33,7 +33,10 @@ scripts/validate-frontmatter.sh "$WIKI_ROOT"
 
 - All pages have `---` frontmatter delimiters
 - Required fields present: `title`, `type`, `language`, `created`, `modified`, `tags`, `summary`
-- `type` is one of: `concept`, `article`, `person`, `synthesis`
+- `type` is one of: `note`, `concept`, `entity`, `project`, `area`, `synthesis`
+- `class` is present and valid on `entity` pages, absent elsewhere
+- `status`, if present, is one of: `active`, `reference`, `someday`, `archived`, `stub`
+- `article` and `person` are reported as superseded, not invalid
 - `language` is one of: `en`, `zh`, `bilingual`
 - Dates are in `YYYY-MM-DD` format
 
@@ -108,16 +111,17 @@ the current link graph.
 
 The LLM performs a quick scan (no page content reads needed):
 
-1. List all `*.md` files in `$WIKI_ROOT/` (excluding `.llm-wiki/` and `index.md`):
+1. List all pages, including those in subdirectories such as `topics/`:
 
    ```bash
-   find "$WIKI_ROOT" -maxdepth 1 -name "*.md" ! -path "*/.llm-wiki/*" ! -name "index.md"
+   find "$WIKI_ROOT" -name '.llm-wiki' -type d -prune -o \
+        -type f -name '*.md' ! -name 'index.md' -print
    ```
 
 2. Check naming rules:
-   - `concept` and `person` pages: should be `{slug}.md` (no date prefix)
-   - `article` pages: should be `{YYYY-MM-DD}-{slug}.md`
-   - `synthesis` pages: should be `synth-{YYYY-MM-DD}-{slug}.md`
+   - `concept`, `entity`, `project`, `area` pages: `{slug}.md` (no date prefix)
+   - `note` pages: `{YYYY-MM-DD}-{slug}.md`
+   - `synthesis` pages: `synth-{YYYY-MM-DD}-{slug}.md`
    - All slugs: lowercase kebab-case, no spaces, no non-ASCII
    - No duplicate slugs (case-insensitive)
 

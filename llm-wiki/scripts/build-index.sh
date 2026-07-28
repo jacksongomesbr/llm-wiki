@@ -52,10 +52,21 @@ fi
 META_DIR="$WIKI_ROOT/.llm-wiki"
 mkdir -p "$META_DIR/cache"
 
+# The wiki keeps its own copy of the schema so it stays readable without the
+# skill installed. It is a copy, so it drifts every time the skill is upgraded
+# — refresh it here rather than leaving a stale contract in place.
+SCHEMA_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/WIKI_SCHEMA.md"
+if [ -f "$SCHEMA_SRC" ] && ! cmp -s "$SCHEMA_SRC" "$META_DIR/schema.md"; then
+    cp "$SCHEMA_SRC" "$META_DIR/schema.md"
+    SCHEMA_REFRESHED=true
+else
+    SCHEMA_REFRESHED=false
+fi
+
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-META="$TMP/meta.tsv"        # slug \t type \t lang \t title \t summary \t modified \t tags \t class \t status
+META="$TMP/meta.tsv"        # slug \t type \t lang \t title \t summary \t modified \t tags \t class \t status \t area
 TAGS="$TMP/tags.tsv"        # tag \t slug
 EDGES="$TMP/edges.tsv"      # source_slug \t raw_target
 ALIASES="$TMP/aliases.tsv"  # alias \t slug
@@ -81,6 +92,8 @@ while IFS= read -r -d '' file; do
     [ -z "$pclass" ] && pclass="—"
     pstatus="$(fm_field "$fm" status)"
     [ -z "$pstatus" ] && pstatus="—"
+    parea="$(fm_field "$fm" area)"
+    [ -z "$parea" ] && parea="—"
 
     # Pipes would break the markdown table; escape them.
     title="${title//|/\\|}"
@@ -88,9 +101,9 @@ while IFS= read -r -d '' file; do
 
     tag_list="$(fm_list "$fm" tags | tr '\n' ',' | sed 's/,$//')"
 
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "$slug" "$ptype" "$lang" "$title" "$summary" "$modified" "$tag_list" \
-        "$pclass" "$pstatus" >> "$META"
+        "$pclass" "$pstatus" "$parea" >> "$META"
 
     fm_list "$fm" tags | while IFS= read -r tag; do
         [ -n "$tag" ] && printf '%s\t%s\n' "$tag" "$slug" >> "$TAGS"
@@ -153,7 +166,7 @@ INDEX="$META_DIR/index.md"
     else
         echo "| Slug | Title | Kind | Status | Lang | Tags | Summary | Modified |"
         echo "|------|-------|------|--------|------|------|---------|----------|"
-        while IFS="$(printf '\t')" read -r slug ptype lang title summary modified tag_list pclass pstatus; do
+        while IFS="$(printf '\t')" read -r slug ptype lang title summary modified tag_list pclass pstatus _parea; do
             kind="$ptype"
             [ "$pclass" != "—" ] && kind="$ptype/$pclass"
             printf '| [[%s]] | %s | %s | %s | %s | %s | %s | %s |\n' \
@@ -201,11 +214,13 @@ INDEX="$META_DIR/index.md"
         echo ""
         echo "| Project | Status | Area | Summary |"
         echo "|---------|--------|------|---------|"
-        while IFS="$(printf '\t')" read -r slug ptype _lang _title summary _modified _tags _class pstatus; do
+        # `area` is read from the metadata table, not by rebuilding a path from
+        # the slug: pages may live in subdirectories such as topics/, where
+        # "$WIKI_ROOT/$slug.md" does not exist and the area silently came back
+        # empty.
+        while IFS="$(printf '\t')" read -r slug ptype _lang _title summary _modified _tags _class pstatus parea; do
             [ "$ptype" = "project" ] || continue
-            area="$(fm_field "$(extract_frontmatter "$WIKI_ROOT/$slug.md")" area)"
-            [ -z "$area" ] && area="—"
-            printf '| [[%s]] | %s | %s | %s |\n' "$slug" "$pstatus" "$area" "$summary"
+            printf '| [[%s]] | %s | %s | %s |\n' "$slug" "$pstatus" "$parea" "$summary"
         done < "$META"
         echo ""
     fi
@@ -214,7 +229,7 @@ INDEX="$META_DIR/index.md"
     echo ""
     ORPHAN_COUNT=0
     if [ "$PAGE_COUNT" -gt 0 ]; then
-        while IFS="$(printf '\t')" read -r slug _ptype _lang _title summary _modified _tags _class _status; do
+        while IFS="$(printf '\t')" read -r slug _ptype _lang _title summary _modified _tags _class _status _area; do
             if ! grep -qFx "$slug" "$INBOUND" 2>/dev/null; then
                 echo "- [[$slug]] — $summary (no incoming links)"
                 ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
@@ -252,4 +267,7 @@ if [ "$QUIET" = false ]; then
     echo "  Pages:   $PAGE_COUNT"
     echo "  Orphans: ${ORPHANS:-0}"
     echo "  Hash:    $FM_HASH"
+    if [ "$SCHEMA_REFRESHED" = true ]; then
+        echo "  Schema:  refreshed from the installed skill"
+    fi
 fi

@@ -20,7 +20,7 @@ Build structure:
 
 ```json
 {
-  "nodes": [{"id": "slug", "title": "Display Title", "type": "concept|article|person|synthesis", "language": "en|zh|bilingual", "tags": ["tag1"], "incomingLinks": N, "outgoingLinks": N}],
+  "nodes": [{"id": "slug", "title": "Display Title", "type": "note|concept|entity|project|area|synthesis", "class": "person|organization|tool|place|work|event|null", "status": "active|reference|someday|archived|stub", "language": "en|zh|bilingual", "tags": ["tag1"], "incomingLinks": N, "outgoingLinks": N}],
   "edges": [{"source": "page-a", "target": "page-b"}]
 }
 ```
@@ -38,7 +38,11 @@ Write to `$WIKI_ROOT/.llm-wiki/graph.json`.
 Create a self-contained HTML file at `$WIKI_ROOT/.llm-wiki/graph.html` with:
 
 - Dark-themed D3.js v7 force-directed graph (CDN: `d3js.org/d3.v7.min.js`)
-- Color-coded nodes: concept=#5b9bd5, article=#ed7d31, person=#70ad47, synthesis=#ffc000
+- Color-coded nodes by `type`: concept=#5b9bd5, note=#ed7d31, entity=#70ad47,
+  synthesis=#ffc000, project=#c0504d, area=#8064a2
+- Entities are additionally shaped by `class` (person=circle, organization=square,
+  tool=triangle, place=diamond, work=hexagon, event=star), so the two axes of the
+  model stay visible in the graph
 - Node radius: `5 + min(incomingLinks, 15)` px
 - Tooltips on hover: title, type, language, link counts, tags
 - Draggable nodes, zoom/pan on SVG
