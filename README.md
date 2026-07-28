@@ -173,46 +173,48 @@ wiki/
 │   └── inbox/{sha256}-analysis.md  Phase 1 ingest analyses
 ├── references.bib                  BibLaTeX bibliography of every source
 ├── transformer.md                  Concept page
-├── 2026-04-28-weekly-notes.md      Article page
-├── alan-turing.md                  Person page
+├── 2026-04-28-weekly-notes.md      Note page
+├── alan-turing.md                  Entity page (class: person)
+├── ship-v2.md                      Project page
+├── engineering.md                  Area page
 └── synth-2026-04-28-riscv.md       Synthesis page
 ```
 
 ---
 
-## Page Types
+## The Data Model
 
-### `concept` — Define a term, idea, methodology, tool
+Two axes, deliberately separate. `type` is how the **document** is structured;
+`class` is what the **thing** is. Folding both into one field is what turned
+`concept` into a junk drawer holding ideas, tools and organisations alike.
 
-```yaml
-type: concept
-language: en | zh | bilingual
-```
+| Field | Answers | Values |
+|-------|---------|--------|
+| `type` | What kind of document? | `note` `concept` `entity` `project` `area` `synthesis` |
+| `class` | What kind of thing? (entities only) | `person` `organization` `tool` `place` `work` `event` |
+| `status` | Where in its life? | `active` `reference` `someday` `archived` `stub` |
+| `area` | Which ongoing responsibility? | `"[[area-slug]]"` |
 
-Body: Definition → Key Properties → Examples → Related
+| Type | File | Purpose |
+|------|------|---------|
+| `note` | `YYYY-MM-DD-{slug}.md` | Dated writing: journal, meeting, reading, idea |
+| `concept` | `{slug}.md` | An idea you think *with* |
+| `entity` | `{slug}.md` | A thing that exists. Requires `class` |
+| `project` | `{slug}.md` | Has an outcome and an end |
+| `area` | `{slug}.md` | Ongoing responsibility, no end date |
+| `synthesis` | `synth-YYYY-MM-DD-{slug}.md` | A saved answer — the compounding mechanism |
 
-### `article` — Notes, blog drafts, imported documents
+**Project or area?** If you can state what "done" looks like, it is a project.
+If the work never finishes and only slips below standard, it is an area. Get
+this wrong and you accumulate projects that never close.
 
-```yaml
-type: article
-```
+`project` and `area` make the wiki *operable* rather than merely encyclopedic —
+but they only earn their place if you review them. The index grows a Projects
+view when the wiki contains any, and omits it entirely when it does not.
 
-File: `YYYY-MM-DD-{slug}.md`
-
-### `person` — Author, researcher, notable individual
-
-```yaml
-type: person
-```
-
-### `synthesis` — Saved query answer (the compounding mechanism)
-
-```yaml
-type: synthesis
-query, based_on[], confidence: high | medium | low
-```
-
-File: `synth-YYYY-MM-DD-{slug}.md`
+**Superseded:** `type: article` → `note`, `type: person` → `entity` + `class: person`.
+Both still validate, reported as warnings with the migration, so an existing
+wiki keeps working across a skill upgrade.
 
 ---
 

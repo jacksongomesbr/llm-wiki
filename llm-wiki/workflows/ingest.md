@@ -99,10 +99,16 @@ From the source, identify:
 - Would someone encountering this term want to look it up?
 - Does it already have a page in the wiki? (check index)
 
-**Persons** — authors, researchers, notable figures mentioned:
+**Entities** — people, organisations, tools, places, works and events named in
+the source:
 
 - Are they central to the content?
 - Do they already have a page?
+- What `class` are they? A tool and an organisation are both entities but carry
+  different facets.
+
+Distinguish an **entity** (a thing that exists) from a **concept** (an idea you
+think with). "Kubernetes" is a tool entity; "eventual consistency" is a concept.
 
 **Key claims** — factual assertions worth preserving:
 
@@ -143,15 +149,15 @@ Write the analysis to `$WIKI_ROOT/.llm-wiki/inbox/$HASH-analysis.md`:
 | concept-name | create | New concept defined in source |
 | existing-concept | update | New information to add |
 
-## Persons to Create/Update
-| Person | Action | Details |
-|--------|--------|---------|
-| name | create | Key contributor |
+## Entities to Create/Update
+| Entity | Class | Action | Details |
+|--------|-------|--------|---------|
+| name | person | create | Key contributor |
 
 ## Pages to Create
 | Filename | Type | Title | Key Content |
 |----------|------|-------|-------------|
-| ... | article | ... | ... |
+| ... | note | ... | ... |
 
 ## Contradictions Detected
 | Existing Page | New Claim | Conflict |
@@ -182,15 +188,15 @@ Show the user a summary of the analysis:
 
 ## Phase 2 — Generation
 
-### Step 10: Create/Update Article Page
+### Step 10: Create/Update Note Page
 
-**If the source warrants an article page** (research notes, blog post, imported article):
+**If the source warrants a note page** (research notes, blog post, imported article):
 
-1. Read `templates/article.md` from the skill directory
+1. Read `templates/note.md` from the skill directory
 2. Create `$WIKI_ROOT/{YYYY-MM-DD}-{slug}.md`
 3. Fill frontmatter:
    - `title`: Descriptive title (use bilingual format if source is bilingual)
-   - `type: article`
+   - `type: note`, plus `note_kind`
    - `language`: from Step 5 detection
    - `created`, `modified`: today's date
    - `tags`: derived from content
@@ -198,7 +204,7 @@ Show the user a summary of the analysis:
    - `source_url`: if URL source
    - `source_hash`: from Step 1
 4. Fill body following the template structure
-5. Include [[wikilinks]] to all related concept/person pages
+5. Include [[wikilinks]] to all related concept and entity pages
 
 ### Step 11: Create/Update Concept Pages
 
@@ -211,7 +217,7 @@ For each concept identified in Phase 1:
 3. Fill all required frontmatter
 4. Write the body following the template
 5. Include [[wikilinks]] to:
-   - The source article page
+   - The source note page
    - Related concepts (existing or newly created)
    - Source references
 
@@ -223,15 +229,15 @@ For each concept identified in Phase 1:
 4. Update `modified` date
 5. Add new [[wikilinks]] as appropriate
 
-### Step 12: Create/Update Person Pages
+### Step 12: Create/Update Entity Pages
 
-For each person identified in Phase 1:
+For each entity identified in Phase 1:
 
-**If creating a new person page:**
+**If creating a new entity page:**
 
-1. Read `templates/person.md`
+1. Read `templates/entity.md`
 2. Create `$WIKI_ROOT/{slug}.md`
-3. Fill required frontmatter + any optional fields known
+3. Fill required frontmatter, including `class`, plus the facets that apply to that class
 4. Write body following the template
 5. Link to their work/concepts
 

@@ -8,6 +8,8 @@ tags: []
 aliases: []
 summary: ""
 references: []                      # citation keys from references.bib
+status: reference                   # active | reference | someday | archived | stub
+area: ""                            # optional: "[[area-slug]]" this belongs to
 ---
 
 # {Title}

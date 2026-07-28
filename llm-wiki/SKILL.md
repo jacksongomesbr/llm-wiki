@@ -132,13 +132,20 @@ When the user invokes `/wiki`, do the following:
 |------|-----------|-------|
 ... (from log if exists, or index modified dates)
 
-## Page Types
-| Type | Count |
+## By Kind
+| Kind | Count |
 |------|-------|
+| entity / person | N |
+| entity / organization | N |
 | concept | N |
-| article | N |
-| person | N |
+| note | N |
+| project | N |
+| area | N |
 | synthesis | N |
+
+## Projects (if any)
+| Project | Status | Area |
+|---------|--------|------|
 
 ## Pending Review ({N})
 ... (from review.json)

@@ -132,9 +132,11 @@ REQUIRED_FILES=(
     "workflows/save-synthesis.md"
     "workflows/graph.md"
     "workflows/review.md"
-    "templates/article.md"
+    "templates/note.md"
     "templates/concept.md"
-    "templates/person.md"
+    "templates/entity.md"
+    "templates/project.md"
+    "templates/area.md"
     "templates/synthesis.md"
 )
 ALL_OK=true

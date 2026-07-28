@@ -55,7 +55,7 @@ mkdir -p "$META_DIR/cache"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-META="$TMP/meta.tsv"        # slug \t type \t lang \t title \t summary \t modified
+META="$TMP/meta.tsv"        # slug \t type \t lang \t title \t summary \t modified \t tags \t class \t status
 TAGS="$TMP/tags.tsv"        # tag \t slug
 EDGES="$TMP/edges.tsv"      # source_slug \t raw_target
 ALIASES="$TMP/aliases.tsv"  # alias \t slug
@@ -77,6 +77,10 @@ while IFS= read -r -d '' file; do
     summary="$(fm_field "$fm" summary)"
     modified="$(fm_field "$fm" modified)"
     [ -z "$modified" ] && modified="—"
+    pclass="$(fm_field "$fm" class)"
+    [ -z "$pclass" ] && pclass="—"
+    pstatus="$(fm_field "$fm" status)"
+    [ -z "$pstatus" ] && pstatus="—"
 
     # Pipes would break the markdown table; escape them.
     title="${title//|/\\|}"
@@ -84,8 +88,9 @@ while IFS= read -r -d '' file; do
 
     tag_list="$(fm_list "$fm" tags | tr '\n' ',' | sed 's/,$//')"
 
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-        "$slug" "$ptype" "$lang" "$title" "$summary" "$modified" "$tag_list" >> "$META"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$slug" "$ptype" "$lang" "$title" "$summary" "$modified" "$tag_list" \
+        "$pclass" "$pstatus" >> "$META"
 
     fm_list "$fm" tags | while IFS= read -r tag; do
         [ -n "$tag" ] && printf '%s\t%s\n' "$tag" "$slug" >> "$TAGS"
@@ -146,11 +151,13 @@ INDEX="$META_DIR/index.md"
     if [ "$PAGE_COUNT" -eq 0 ]; then
         echo "*No pages yet — use /wiki-ingest to add your first source.*"
     else
-        echo "| Slug | Title | Type | Lang | Tags | Summary | Modified |"
-        echo "|------|-------|------|------|------|---------|----------|"
-        while IFS="$(printf '\t')" read -r slug ptype lang title summary modified tag_list; do
-            printf '| [[%s]] | %s | %s | %s | %s | %s | %s |\n' \
-                "$slug" "$title" "$ptype" "$lang" "${tag_list//,/, }" "$summary" "$modified"
+        echo "| Slug | Title | Kind | Status | Lang | Tags | Summary | Modified |"
+        echo "|------|-------|------|--------|------|------|---------|----------|"
+        while IFS="$(printf '\t')" read -r slug ptype lang title summary modified tag_list pclass pstatus; do
+            kind="$ptype"
+            [ "$pclass" != "—" ] && kind="$ptype/$pclass"
+            printf '| [[%s]] | %s | %s | %s | %s | %s | %s | %s |\n' \
+                "$slug" "$title" "$kind" "$pstatus" "$lang" "${tag_list//,/, }" "$summary" "$modified"
         done < "$META"
     fi
     echo ""
@@ -174,11 +181,40 @@ INDEX="$META_DIR/index.md"
         echo ""
     fi
 
+    echo "## By Kind"
+    echo ""
+    if [ "$PAGE_COUNT" -gt 0 ]; then
+        cut -f2,8 "$META" | sort | uniq -c | sort -rn | while read -r n t c; do
+            label="$t"
+            [ "$c" != "—" ] && label="$t / $c"
+            echo "- **$label** — $n"
+        done
+    else
+        echo "*No pages yet.*"
+    fi
+    echo ""
+
+    # An operating-system view: what is actually in flight. Absent when the
+    # wiki holds no projects, so a purely encyclopedic wiki is not cluttered.
+    if awk -F'\t' '$2 == "project"' "$META" | grep -q .; then
+        echo "## Projects"
+        echo ""
+        echo "| Project | Status | Area | Summary |"
+        echo "|---------|--------|------|---------|"
+        while IFS="$(printf '\t')" read -r slug ptype _lang _title summary _modified _tags _class pstatus; do
+            [ "$ptype" = "project" ] || continue
+            area="$(fm_field "$(extract_frontmatter "$WIKI_ROOT/$slug.md")" area)"
+            [ -z "$area" ] && area="—"
+            printf '| [[%s]] | %s | %s | %s |\n' "$slug" "$pstatus" "$area" "$summary"
+        done < "$META"
+        echo ""
+    fi
+
     echo "## Orphan Pages"
     echo ""
     ORPHAN_COUNT=0
     if [ "$PAGE_COUNT" -gt 0 ]; then
-        while IFS="$(printf '\t')" read -r slug _ptype _lang _title summary _modified _tags; do
+        while IFS="$(printf '\t')" read -r slug _ptype _lang _title summary _modified _tags _class _status; do
             if ! grep -qFx "$slug" "$INBOUND" 2>/dev/null; then
                 echo "- [[$slug]] — $summary (no incoming links)"
                 ORPHAN_COUNT=$((ORPHAN_COUNT + 1))

@@ -1,21 +1,26 @@
 ---
 title: "{Title}"
-type: article
+type: note
 language: en | zh | bilingual
 created: YYYY-MM-DD
 modified: YYYY-MM-DD
 tags: []
 summary: ""
 references: []                      # citation keys from references.bib
+status: reference                   # active | reference | someday | archived | stub
+area: ""                            # optional: "[[area-slug]]" this belongs to
+note_kind: journal                  # journal | meeting | reading | idea
 ---
 
 # {Title}
 
 ## Summary
+
 <!-- 2-4 sentence overview. -->
 
 ## Content
-<!-- Main body — flexible format depending on content type. -->
+
+<!-- Main body — format follows the kind of note. -->
 
 ## Key Takeaways
 

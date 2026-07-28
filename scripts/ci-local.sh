@@ -186,7 +186,7 @@ EOF
     cat > ./wiki/other-page.md << 'EOF'
 ---
 title: "Other Page"
-type: article
+type: note
 language: en
 created: "2026-04-30"
 modified: "2026-04-30"

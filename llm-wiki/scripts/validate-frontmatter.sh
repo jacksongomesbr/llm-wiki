@@ -28,7 +28,21 @@ fi
 # `tags` is a list and the rest are scalars — different emptiness tests, so
 # they are checked separately below.
 SCALAR_FIELDS=("title" "type" "language" "created" "modified" "summary")
-VALID_TYPES=("concept" "article" "person" "synthesis")
+
+# `type` is the document's structure; `class` is what an entity actually is.
+# Conflating them is why `concept` became a junk drawer holding ideas, tools
+# and organisations alike.
+VALID_TYPES=("note" "concept" "entity" "project" "area" "synthesis")
+VALID_CLASSES=("person" "organization" "tool" "place" "work" "event")
+
+# Accepted, but superseded. Reported as a warning with the migration, never as
+# an error — an existing wiki must keep validating after a skill upgrade.
+LEGACY_TYPES=("article" "person")
+
+# Lifecycle. Optional; it is what makes the wiki operable rather than purely
+# encyclopedic.
+VALID_STATUSES=("active" "reference" "someday" "archived" "stub")
+
 VALID_LANGUAGES=("en" "zh" "bilingual")
 
 ISSUES_FOUND=0
@@ -67,7 +81,7 @@ check_page() {
         ISSUES_FOUND=1
     fi
 
-    local ptype valid vt
+    local ptype valid vt lt
     ptype="$(fm_field "$frontmatter" type)"
     if [ -n "$ptype" ]; then
         valid=0
@@ -75,9 +89,62 @@ check_page() {
             [ "$ptype" = "$vt" ] && valid=1
         done
         if [ "$valid" -eq 0 ]; then
-            echo "ERROR: $rel — Invalid type '$ptype' (must be one of: ${VALID_TYPES[*]})"
+            local legacy=0
+            for lt in "${LEGACY_TYPES[@]}"; do
+                [ "$ptype" = "$lt" ] && legacy=1
+            done
+            if [ "$legacy" -eq 1 ]; then
+                case "$ptype" in
+                    article) echo "WARNING: $rel — type 'article' is superseded by 'note'" ;;
+                    person)  echo "WARNING: $rel — type 'person' is superseded by 'entity' with 'class: person'" ;;
+                esac
+                ISSUES_FOUND=1
+            else
+                echo "ERROR: $rel — Invalid type '$ptype' (must be one of: ${VALID_TYPES[*]})"
+                ISSUES_FOUND=1
+            fi
+        fi
+    fi
+
+    # `class` says what kind of thing an entity is. Required for entities,
+    # meaningless for anything else.
+    local pclass vc
+    pclass="$(fm_field "$frontmatter" class)"
+    if [ "$ptype" = "entity" ]; then
+        if [ -z "$pclass" ]; then
+            echo "ERROR: $rel — type 'entity' requires a 'class' (one of: ${VALID_CLASSES[*]})"
+            ISSUES_FOUND=1
+        else
+            valid=0
+            for vc in "${VALID_CLASSES[@]}"; do
+                [ "$pclass" = "$vc" ] && valid=1
+            done
+            if [ "$valid" -eq 0 ]; then
+                echo "ERROR: $rel — Invalid class '$pclass' (must be one of: ${VALID_CLASSES[*]})"
+                ISSUES_FOUND=1
+            fi
+        fi
+    elif [ -n "$pclass" ]; then
+        echo "WARNING: $rel — 'class' is only meaningful on type 'entity' (this page is '$ptype')"
+        ISSUES_FOUND=1
+    fi
+
+    # `status` is optional everywhere, but a project without one cannot be
+    # triaged, which defeats the point of having projects.
+    local pstatus vs
+    pstatus="$(fm_field "$frontmatter" status)"
+    if [ -n "$pstatus" ]; then
+        valid=0
+        for vs in "${VALID_STATUSES[@]}"; do
+            [ "$pstatus" = "$vs" ] && valid=1
+        done
+        if [ "$valid" -eq 0 ]; then
+            echo "ERROR: $rel — Invalid status '$pstatus' (must be one of: ${VALID_STATUSES[*]})"
             ISSUES_FOUND=1
         fi
+    elif [ "$ptype" = "project" ]; then
+        echo "WARNING: $rel — type 'project' should declare a 'status'"
+        ISSUES_FOUND=1
     fi
 
     local lang vl

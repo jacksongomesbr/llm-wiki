@@ -11,20 +11,73 @@ Read this file when you need to understand:
 
 ---
 
-## Page Types Overview
+## The Model: Two Axes
+
+`type` is **how the document is structured**. `class` is **what an entity
+actually is**. Keeping them separate is deliberate: a tool, an organisation and
+an idea share no structure, so folding them all into `concept` produced a junk
+drawer.
+
+| Field | Answers | Values |
+|-------|---------|--------|
+| `type` | What kind of *document* is this? | `note` `concept` `entity` `project` `area` `synthesis` |
+| `class` | What kind of *thing* is it? (entities only) | `person` `organization` `tool` `place` `work` `event` |
+| `status` | Where is it in its life? | `active` `reference` `someday` `archived` `stub` |
+| `area` | What ongoing responsibility does it serve? | `"[[area-slug]]"` |
+
+### Page Types
 
 | Type | File Pattern | Purpose |
 |------|-------------|---------|
-| `concept` | `{slug}.md` | Define a term, idea, methodology, framework, or tool |
-| `article` | `{YYYY-MM-DD}-{slug}.md` | Research notes, blog drafts, meeting notes, diary entries, imported documents |
-| `person` | `{slug}.md` | Author, researcher, historical figure, notable individual |
-| `synthesis` | `synth-{YYYY-MM-DD}-{slug}.md` | Saved query answer — a synthesized page from existing knowledge |
+| `note` | `{YYYY-MM-DD}-{slug}.md` | Dated, free-form: journal, meeting, reading, idea |
+| `concept` | `{slug}.md` | An idea, method or framework — something you think *with* |
+| `entity` | `{slug}.md` | A thing that exists. Requires `class` |
+| `project` | `{slug}.md` | Actionable, has an outcome and an end |
+| `area` | `{slug}.md` | Ongoing responsibility with a standard and no end date |
+| `synthesis` | `synth-{YYYY-MM-DD}-{slug}.md` | A saved answer — the compounding mechanism |
+
+### Project or Area?
+
+If you can state what "done" looks like, it is a **project**. If you cannot —
+because the work never finishes, only slips below standard — it is an **area**.
+"Ship v2" is a project; "engineering" is an area. Getting this wrong produces
+projects that never close and areas that feel perpetually failed.
+
+### Superseded Types
+
+`article` and `person` still validate, but are reported as warnings with their
+migration:
+
+| Old | New |
+|-----|-----|
+| `type: article` | `type: note` |
+| `type: person` | `type: entity` + `class: person` |
+
+Existing wikis keep working across a skill upgrade; nothing is rewritten
+automatically.
+
+### Class Facets
+
+Optional, and only the ones that apply:
+
+| class | facets |
+|-------|--------|
+| `person` | `birth` `death` `nationality` `affiliations` `contact` |
+| `organization` | `founded` `dissolved` `industry` `headquarters` |
+| `tool` | `vendor` `url` `cost` `replaces` `replaced_by` |
+| `place` | `region` `coordinates` |
+| `work` | `creator` `published` `isbn` `doi` |
+| `event` | `date` `location` `participants` |
+
+A `work` you merely cite belongs in `references.bib`, not in a page. Create a
+`class: work` entity only when you have something to say beyond the citation,
+and link the two with `references:`.
 
 ---
 
 ## 1. Concept Page (`type: concept`)
 
-**Purpose**: Define a term, idea, methodology, framework, tool, or entity.
+**Purpose**: An idea, method or framework — something you think *with*. If it is a thing that exists in the world, it is an `entity`, not a concept.
 
 **File naming**: `{slug}.md` — lowercase kebab-case, ASCII-safe. Examples:
 
@@ -82,9 +135,9 @@ related_concepts: []                # Explicit related slugs (beyond wikilinks)
 
 ---
 
-## 2. Article Page (`type: article`)
+## 2. Note Page (`type: note`)
 
-**Purpose**: Research notes, blog drafts, meeting notes, diary entries, imported web articles, PDF summaries.
+**Purpose**: Dated, free-form writing — journal entries, meeting notes, reading notes, imported articles, ideas. Set `note_kind` to `journal`, `meeting`, `reading` or `idea`.
 
 **File naming**: `{YYYY-MM-DD}-{slug}.md` — date-prefixed for chronological sorting. Examples:
 
@@ -96,7 +149,7 @@ related_concepts: []                # Explicit related slugs (beyond wikilinks)
 ```yaml
 ---
 title: "Display Title"
-type: article
+type: note
 language: en | zh | bilingual
 created: YYYY-MM-DD
 modified: YYYY-MM-DD
@@ -110,7 +163,6 @@ summary: ""                         # One-sentence description
 ```yaml
 source_url: ""                      # Original URL if a web article
 source_hash: ""                     # SHA-256 of original source
-status: draft | published | archived
 meeting_date: YYYY-MM-DD            # For meeting notes
 diary_date: YYYY-MM-DD              # For diary entries
 ```
@@ -136,21 +188,23 @@ diary_date: YYYY-MM-DD              # For diary entries
 
 ---
 
-## 3. Person Page (`type: person`)
+## 3. Entity Page (`type: entity`)
 
-**Purpose**: Author, researcher, historical figure, notable individual.
+**Purpose**: A thing that exists in the world — a person, organisation, tool, place, work or event. `class` says which; the facets in the table above follow from it.
 
-**File naming**: `{slug}.md` — lowercase kebab-case of the person's name. Examples:
+**File naming**: `{slug}.md` — lowercase kebab-case. Examples:
 
-- `alan-turing.md`
-- `andrej-karpathy.md`
+- `alan-turing.md` (class: person)
+- `kubernetes.md` (class: tool)
+- `xerox-parc.md` (class: organization)
 
 **Required frontmatter**:
 
 ```yaml
 ---
 title: "Display Name"
-type: person
+type: entity
+class: person | organization | tool | place | work | event
 language: en | zh | bilingual
 created: YYYY-MM-DD
 modified: YYYY-MM-DD
@@ -175,25 +229,84 @@ affiliations: []                    # Organizations they're associated with
 ```markdown
 # {Name}
 
-## Bio
-[Brief biography — 3-5 sentences.]
+## Overview
+[What this is and why it is in the wiki — 3-5 sentences.]
 
-## Key Contributions
-- Contribution 1
-- Contribution 2
+## Key Facts
+- Fact 1
+- Fact 2
 
-## Related Work
-- [[related-concept]] — their role
-- [[related-person]] — collaboration or influence
+## Related
+- [[related-concept]] — relationship
+- [[related-entity]] — relationship
 
-## Links
-- [Personal site](url)
-- [Wikipedia](url)
+## References
+- [@citekey]
 ```
 
 ---
 
-## 4. Synthesis Page (`type: synthesis`)
+## 4. Project Page (`type: project`)
+
+**Purpose**: Work with a definable end. If you cannot say what "done" looks
+like, it is an `area`.
+
+**File naming**: `{slug}.md`
+
+```yaml
+---
+title: "Display Title"
+type: project
+language: en | zh | bilingual
+created: YYYY-MM-DD
+modified: YYYY-MM-DD
+tags: []
+summary: ""
+status: active | someday | archived
+area: "[[area-slug]]"               # the ongoing responsibility this serves
+outcome: ""                         # the single definition of done
+due: YYYY-MM-DD                     # optional
+stakeholders: []
+---
+```
+
+Body: Outcome → Current State → Next Actions → Decisions → Related → References
+
+Record **decisions with dates and reasoning**. A project page whose decisions
+are undocumented gets relitigated every time someone new looks at it.
+
+---
+
+## 5. Area Page (`type: area`)
+
+**Purpose**: An ongoing responsibility with a standard and no end date —
+health, finances, a team, a codebase.
+
+**File naming**: `{slug}.md`
+
+```yaml
+---
+title: "Display Title"
+type: area
+language: en | zh | bilingual
+created: YYYY-MM-DD
+modified: YYYY-MM-DD
+tags: []
+summary: ""
+status: active | archived
+review_cadence: weekly | monthly | quarterly
+last_reviewed: YYYY-MM-DD
+---
+```
+
+Body: Standard → Current Projects → Reference → Review Log → References
+
+An area is only worth having if you actually review it on its cadence. An area
+nobody reviews is a tag with extra steps.
+
+---
+
+## 6. Synthesis Page (`type: synthesis`)
 
 **Purpose**: A saved query answer — synthesized from existing wiki pages. These are the "compounding" part of the wiki: explorations that become permanent knowledge.
 

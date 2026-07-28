@@ -723,6 +723,173 @@ assert_eq "$(normalise_url 'https://e.com/p?utm_source=a&id=7#frag')" "https://e
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
+# type / class / status model
+# ════════════════════════════════════════════════════════════════════════════
+
+if should_run "model"; then
+describe "type / class / status model"
+
+typed_page() {
+    # typed_page <root> <slug> <frontmatter-extra>
+    local root="$1" slug="$2" extra="$3"
+    cat > "$root/$slug.md" <<EOF
+---
+title: "$slug"
+language: en
+created: 2026-01-01
+modified: 2026-01-01
+tags: [test]
+summary: "page $slug"
+$extra
+---
+# $slug
+Body.
+EOF
+}
+
+W="$(new_wiki)"
+typed_page "$W" "ok-entity" "type: entity
+class: person
+status: reference"
+typed_page "$W" "ok-concept" "type: concept"
+typed_page "$W" "ok-note" "type: note"
+OUT="$(bash "$SCRIPTS/validate-frontmatter.sh" "$W" 2>&1)"
+RC=$?
+assert_contains "$OUT" "OK:" "accepts the new type vocabulary"
+assert_eq "$RC" "0" "exits 0 on a valid new-model wiki"
+
+# The whole point of the split: an entity must say what kind of thing it is.
+W="$(new_wiki)"
+typed_page "$W" "classless" "type: entity"
+OUT="$(bash "$SCRIPTS/validate-frontmatter.sh" "$W" 2>&1)"
+assert_contains "$OUT" "requires a 'class'" "an entity without a class is an error"
+
+W="$(new_wiki)"
+typed_page "$W" "badclass" "type: entity
+class: gadget"
+OUT="$(bash "$SCRIPTS/validate-frontmatter.sh" "$W" 2>&1)"
+assert_contains "$OUT" "Invalid class 'gadget'" "rejects an unknown class"
+
+W="$(new_wiki)"
+typed_page "$W" "misplaced" "type: concept
+class: person"
+OUT="$(bash "$SCRIPTS/validate-frontmatter.sh" "$W" 2>&1)"
+assert_contains "$OUT" "only meaningful on type 'entity'" "class on a non-entity is a warning"
+
+# Legacy types must warn, never hard-fail: an existing wiki has to keep
+# validating after the skill is upgraded under it.
+W="$(new_wiki)"
+typed_page "$W" "legacy-article" "type: article"
+typed_page "$W" "legacy-person" "type: person"
+OUT="$(bash "$SCRIPTS/validate-frontmatter.sh" "$W" 2>&1)"
+assert_contains "$OUT" "type 'article' is superseded by 'note'" "reports the article migration"
+assert_contains "$OUT" "type 'person' is superseded by 'entity'" "reports the person migration"
+assert_not_contains "$OUT" "Invalid type 'article'" "legacy types are not reported as invalid"
+
+W="$(new_wiki)"
+typed_page "$W" "badstatus" "type: concept
+status: pending"
+OUT="$(bash "$SCRIPTS/validate-frontmatter.sh" "$W" 2>&1)"
+assert_contains "$OUT" "Invalid status 'pending'" "rejects an unknown status"
+
+W="$(new_wiki)"
+typed_page "$W" "statusless-project" "type: project"
+OUT="$(bash "$SCRIPTS/validate-frontmatter.sh" "$W" 2>&1)"
+assert_contains "$OUT" "should declare a 'status'" "a project without a status is a warning"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
+# index: kind grouping and the projects view
+# ════════════════════════════════════════════════════════════════════════════
+
+if should_run "kind"; then
+describe "build-index.sh kind grouping"
+
+W="$(new_wiki)"
+cat > "$W/jane.md" <<'EOF'
+---
+title: "Jane"
+type: entity
+class: person
+language: en
+created: 2026-01-01
+modified: 2026-01-01
+tags: [people]
+summary: "a person"
+status: reference
+---
+# Jane
+Works on [[ship-v2]].
+EOF
+cat > "$W/acme.md" <<'EOF'
+---
+title: "Acme"
+type: entity
+class: organization
+language: en
+created: 2026-01-01
+modified: 2026-01-01
+tags: [orgs]
+summary: "an organisation"
+status: reference
+---
+# Acme
+Employs [[jane]].
+EOF
+cat > "$W/ship-v2.md" <<'EOF'
+---
+title: "Ship v2"
+type: project
+language: en
+created: 2026-01-01
+modified: 2026-01-01
+tags: [work]
+summary: "get v2 out"
+status: active
+area: "[[engineering]]"
+outcome: "v2 in production"
+---
+# Ship v2
+Serves [[engineering]], staffed by [[jane]] at [[acme]].
+EOF
+cat > "$W/engineering.md" <<'EOF'
+---
+title: "Engineering"
+type: area
+language: en
+created: 2026-01-01
+modified: 2026-01-01
+tags: [work]
+summary: "ongoing engineering responsibility"
+status: active
+review_cadence: monthly
+---
+# Engineering
+Covers [[ship-v2]].
+EOF
+bash "$SCRIPTS/build-index.sh" "$W" --quiet
+IDX="$(cat "$W/.llm-wiki/index.md")"
+
+assert_contains "$IDX" "## By Kind" "index has a By Kind section"
+assert_contains "$IDX" "**entity / person**" "entities are broken out by class"
+assert_contains "$IDX" "**entity / organization**" "each class is counted separately"
+assert_contains "$IDX" "## Projects" "a wiki with projects gets a Projects view"
+assert_contains "$IDX" "[[ship-v2]] | active" "the projects view shows status"
+assert_contains "$IDX" "[[engineering]]" "the projects view shows the owning area"
+assert_contains "$IDX" "entity/person" "the All Pages table shows type/class"
+
+OUT="$(bash "$SCRIPTS/validate-frontmatter.sh" "$W" 2>&1)"
+assert_contains "$OUT" "OK:" "the project/area fixture validates"
+
+# A purely encyclopedic wiki should not carry an empty operations section.
+W2="$(new_wiki)"
+valid_page "$W2" "idea" "Just a concept."
+bash "$SCRIPTS/build-index.sh" "$W2" --quiet
+assert_not_contains "$(cat "$W2/.llm-wiki/index.md")" "## Projects" \
+    "no Projects section when the wiki holds no projects"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
 # Summary
 # ════════════════════════════════════════════════════════════════════════════
 

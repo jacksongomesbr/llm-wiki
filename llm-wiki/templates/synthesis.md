@@ -7,6 +7,7 @@ modified: YYYY-MM-DD
 tags: []
 summary: ""
 references: []                      # citation keys from references.bib
+status: reference
 query: ""
 based_on: []
 confidence: high | medium | low
