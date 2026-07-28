@@ -86,6 +86,9 @@ When you are invoked (via `Skill("wiki")`), determine which workflow to follow b
 | `scripts/update-backlinks.sh` | Refresh the generated Backlinks block on each page |
 | `scripts/log-event.sh` | Append an entry to the chronological `log.md` |
 | `scripts/archive-source.sh` | Write fetched web content to `.raw/` with provenance |
+| `scripts/bib-add.sh` | **Only writer of `references.bib`** — dedupes, returns a stable key |
+| `scripts/validate-bib.sh` | Check citations resolve and entries are cited |
+| `./wiki/references.bib` | BibLaTeX bibliography of every external source |
 | `./wiki/.llm-wiki/` | Wiki metadata (index, log, cache, review queue) |
 | `./wiki/.llm-wiki/log.md` | Chronological record of ingests, queries and lints |
 | `./wiki/.llm-wiki/schema.md` | Per-project copy of schema |

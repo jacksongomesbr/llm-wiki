@@ -7,6 +7,7 @@ modified: YYYY-MM-DD
 tags: []
 aliases: []
 summary: ""
+references: []                      # citation keys from references.bib
 ---
 
 # {Full Name}
@@ -24,5 +25,11 @@ summary: ""
 - [[related-person]] — collaboration or influence
 
 ## Links
+
+-
+
+## References
+
+<!-- Cite bibliography keys: [@key]. Keep in sync with `references:` above. -->
 
 -

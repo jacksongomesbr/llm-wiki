@@ -143,6 +143,7 @@ Claude reads index.md → finds relevant pages → answers with citations
 | **SHA-256 incremental caching** | `.done` sentinel files prevent re-ingestion. Safe to re-drop sources. |
 | **Behavioural tests** | `tests/run-tests.sh` asserts each check *catches* the fault it exists for, not just that it exits 0. |
 | **Sources are archived, not linked** | `/wiki-research` writes fetched content to `.raw/` so provenance survives link rot and ingest stays idempotent. |
+| **Citations are checked both ways** | Every `[@key]` must resolve to a `references.bib` entry, and every entry must be cited. Verified against biber's own data model. |
 
 ### Three-Layer Data Architecture
 
@@ -170,6 +171,7 @@ wiki/
 │   │   ├── state-hash.txt          Detects external modifications
 │   │   └── ingests/{sha256}.done   Sentinel files (idempotent ingestion)
 │   └── inbox/{sha256}-analysis.md  Phase 1 ingest analyses
+├── references.bib                  BibLaTeX bibliography of every source
 ├── transformer.md                  Concept page
 ├── 2026-04-28-weekly-notes.md      Article page
 ├── alan-turing.md                  Person page
@@ -214,6 +216,45 @@ File: `synth-YYYY-MM-DD-{slug}.md`
 
 ---
 
+## Bibliography
+
+Every external source the wiki uses is registered in **`wiki/references.bib`**
+(BibLaTeX), written only by `bib-add.sh`, which deduplicates on DOI or
+normalised URL and assigns a stable `authorYEARword` key:
+
+```bibtex
+@online{microsoft1997apple,
+  author   = {{Microsoft Corporation}},
+  title    = {Microsoft and Apple Affirm Commitment...},
+  date     = {1997-08-06},
+  url      = {https://news.microsoft.com/source/1997/08/06/...},
+  urldate  = {2026-07-27},
+  keywords = {primary-source},
+}
+```
+
+Pages cite it in two places, and `validate-bib.sh` checks they agree:
+
+```yaml
+references: [microsoft1997apple, wikipedia2026applea]
+```
+
+```markdown
+Microsoft invested $150 million in non-voting stock [@microsoft1997apple].
+```
+
+Keys are never recomputed once issued, because pages cite them. Re-adding a
+source the wiki has already seen returns the existing key and writes nothing.
+
+The `[@key]` syntax is pandoc- and Obsidian-compatible, so a page renders with
+a real bibliography:
+
+```bash
+pandoc --citeproc -t plain wiki/apple-inc.md
+```
+
+---
+
 ## Language Handling
 
 The skill's own output — headings, templates, reports — is English.
@@ -252,6 +293,8 @@ llm-wiki/
 │   ├── build-index.sh               ★ Regenerate index.md + staleness baseline
 │   ├── update-backlinks.sh          Maintain generated Backlinks sections
 │   ├── log-event.sh                 Append to the chronological log.md
+│   ├── bib-add.sh                   ★ Only writer of references.bib
+│   ├── validate-bib.sh              Check citations resolve both ways
 │   ├── archive-source.sh            Write fetched web content to .raw/ with provenance
 │   ├── hash-files.sh                SHA-256 hash source files
 │   ├── check-stale.sh               Index freshness check

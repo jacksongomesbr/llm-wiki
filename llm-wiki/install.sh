@@ -118,6 +118,8 @@ REQUIRED_FILES=(
     "scripts/update-backlinks.sh"
     "scripts/log-event.sh"
     "scripts/archive-source.sh"
+    "scripts/bib-add.sh"
+    "scripts/validate-bib.sh"
     "commands/wiki-ingest.md"
     "commands/wiki-query.md"
     "commands/wiki-research.md"

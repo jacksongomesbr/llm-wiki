@@ -6,6 +6,7 @@ created: YYYY-MM-DD
 modified: YYYY-MM-DD
 tags: []
 summary: ""
+references: []                      # citation keys from references.bib
 query: ""
 based_on: []
 confidence: high | medium | low
@@ -42,3 +43,9 @@ confidence: high | medium | low
 
 ## Confidence: {high|medium|low}
 <!-- Reasoning for confidence level. -->
+
+## References
+
+<!-- Cite bibliography keys: [@key]. Keep in sync with `references:` above. -->
+
+-

@@ -6,6 +6,7 @@ created: YYYY-MM-DD
 modified: YYYY-MM-DD
 tags: []
 summary: ""
+references: []                      # citation keys from references.bib
 ---
 
 # {Title}
@@ -23,3 +24,9 @@ summary: ""
 ## Related
 
 - [[related-slug]] — connection
+
+## References
+
+<!-- Cite bibliography keys: [@key]. Keep in sync with `references:` above. -->
+
+-

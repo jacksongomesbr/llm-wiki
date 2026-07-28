@@ -52,6 +52,7 @@ summary: ""                         # One-sentence definition (used in index)
 ```yaml
 source_url: ""                      # URL of original source material
 source_hash: ""                     # SHA-256 of source material
+references: []                      # Citation keys from references.bib
 confidence: high | medium | low     # Confidence in the synthesized page
 related_concepts: []                # Explicit related slugs (beyond wikilinks)
 ```
@@ -255,6 +256,55 @@ gaps_noted: []                      # Knowledge gaps identified
 ## Confidence: {high|medium|low}
 [Reasoning for confidence level.]
 ```
+
+---
+
+## Bibliography and Citations
+
+Every external source the wiki draws on lives in **`references.bib`** at the
+wiki root, in BibLaTeX format. It is written only by `scripts/bib-add.sh`,
+which deduplicates on DOI (or normalised URL) and assigns a stable citation
+key. Keys are never recomputed once issued, because pages cite them.
+
+### Citing a source from a page
+
+Two places, and they must agree:
+
+```yaml
+references: [microsoft1997apple, wikipedia2026steve]
+```
+
+```markdown
+Microsoft invested $150 million in non-voting stock [@microsoft1997apple].
+```
+
+- **`references:`** frontmatter — the page's full source list. Machine-readable,
+  so the index and any export can use it without parsing prose.
+- **`[@key]`** inline — placed at the claim the source supports. Pandoc- and
+  Obsidian-compatible.
+
+`scripts/validate-bib.sh` reports a citation that resolves to no entry, an
+entry no page cites, and an inline `[@key]` missing from the page's
+`references:` list.
+
+### `references` vs `based_on`
+
+Easy to confuse, and they mean opposite things:
+
+| Field | Points at | Used by |
+|-------|-----------|---------|
+| `references` | **External** sources, as citation keys | any page type |
+| `based_on` | **Internal** wiki pages, as slugs | `synthesis` only |
+
+A synthesis page normally carries both: `based_on` names the wiki pages it
+reasoned over, `references` the external sources underneath them.
+
+### Entry types
+
+`@online` for web pages (the default), `@article`, `@book`, `@report`,
+`@inproceedings`, `@misc`. Corporate authors are brace-protected
+(`author = {{Microsoft Corporation}}`) so BibLaTeX does not read them as a
+personal name. `keywords = {primary-source}` marks a primary document.
 
 ---
 

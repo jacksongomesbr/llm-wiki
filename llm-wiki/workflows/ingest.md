@@ -268,6 +268,21 @@ For each contradiction found in Phase 1:
    {"type": "contradiction", "pages": ["page-a", "page-b"], "description": "...", "detected": "YYYY-MM-DD"}
    ```
 
+### Step 14b: Attach Citations
+
+Every page built from a source must record where its claims came from.
+
+1. Read the source's `cite_keys:` from its `.raw` frontmatter.
+2. If it has none — an older archive, or a file the user dropped in by hand —
+   register each URL in its `sources:` list with `scripts/bib-add.sh` and use
+   the keys it returns.
+3. Put the keys a page actually used in that page's `references:` frontmatter,
+   and place `[@key]` inline at the claims they support.
+
+Do not attach the full source list to every page indiscriminately. A citation
+means *this page's claims rest on that source*; if it means "some page from
+this batch used it", the bibliography stops being evidence.
+
 ### Step 15: Regenerate Index and Backlinks
 
 **This is a programmatic operation — never write `index.md` yourself.**
@@ -275,6 +290,7 @@ For each contradiction found in Phase 1:
 ```bash
 scripts/build-index.sh "$WIKI_ROOT"
 scripts/update-backlinks.sh "$WIKI_ROOT"
+scripts/validate-bib.sh "$WIKI_ROOT"
 ```
 
 `build-index.sh` walks every page (including subdirectories such as

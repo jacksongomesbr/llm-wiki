@@ -125,11 +125,30 @@ The LLM performs a quick scan (no page content reads needed):
 
 **Severity:** ⚠️ WARNING — inconsistent naming makes the wiki harder to navigate programmatically
 
+### Step Q6: Validate Citations
+
+```bash
+scripts/validate-bib.sh "$WIKI_ROOT"
+```
+
+**What it checks:**
+
+- Duplicate citation keys in `references.bib`
+- Entries with no title, or with neither `url` nor `doi`
+- **Dangling citations** — a `references:` key or `[@key]` with no entry
+- **Orphan entries** — a bibliography entry no page cites
+- Drift between a page's `references:` list and its inline `[@key]` markers
+
+**Exit codes:** 0 = valid, 1 = issues found
+
+**Severity:** dangling citations are ERROR (a claim points at nothing); orphan
+entries and drift are WARNING.
+
 ---
 
 ## Quick Lint Report
 
-After running Q1-Q5, present:
+After running Q1-Q6, present:
 
 ```
 # Wiki Health Report
@@ -146,6 +165,7 @@ After running Q1-Q5, present:
 | Orphan Pages | ... |
 | Stale Index | ... |
 | Naming | ... |
+| Citations | ... |
 
 ## Summary
 - {N} errors, {N} warnings
@@ -170,7 +190,7 @@ Full lint requires the LLM to read page content and reason about it. This has to
 
 ### Step F1: Run Quick Lint First
 
-Always run Q1-Q5 before full lint. If there are errors, ask the user if they want to proceed anyway (semantic checks may be unreliable on structurally broken pages).
+Always run Q1-Q6 before full lint. If there are errors, ask the user if they want to proceed anyway (semantic checks may be unreliable on structurally broken pages).
 
 ### Step F2: Contradiction Sweep
 

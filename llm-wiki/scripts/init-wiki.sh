@@ -117,6 +117,22 @@ if [ ! -f "$WIKI_ROOT/.llm-wiki/graph.json" ] || [ "$FORCE" = true ]; then
     echo "  ✓ graph.json"
 fi
 
+# Create references.bib if it doesn't exist.
+# It lives beside the pages (not in .llm-wiki/) so Obsidian citation plugins,
+# pandoc and BibLaTeX can be pointed straight at it. Page enumeration filters
+# on *.md, so it is never mistaken for a wiki page.
+if [ ! -f "$WIKI_ROOT/references.bib" ] || [ "$FORCE" = true ]; then
+    cat > "$WIKI_ROOT/references.bib" << 'BIBEOF'
+% references.bib — every external source this wiki draws on.
+%
+% Managed by llm-wiki/scripts/bib-add.sh. Entry contents may be edited by hand
+% and will be preserved, but do NOT rename a citation key: wiki pages cite
+% these keys, and validate-bib.sh will report the orphaned citations.
+
+BIBEOF
+    echo "  ✓ references.bib"
+fi
+
 # Remove any legacy wiki/index.md symlink.
 #
 # Earlier versions symlinked the index into the wiki root for convenience. It

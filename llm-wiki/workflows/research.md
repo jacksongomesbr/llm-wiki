@@ -95,15 +95,40 @@ Run targeted searches to resolve each. Record what you could not resolve.
 
 ## Phase 2 — Archive
 
-### Step 2: Write Every Source to `.raw/`
+### Step 2a: Register Each Source in the Bibliography
 
-For each fetched source:
+Before archiving, record the source and capture its citation key:
+
+```bash
+KEY=$(scripts/bib-add.sh \
+  --type online \
+  --author "Microsoft Corporation" \
+  --title "Microsoft and Apple Affirm Commitment to Build Next Generation Software for Macintosh" \
+  --date 1997-08-06 \
+  --url "https://news.microsoft.com/source/1997/08/06/..." \
+  --urldate "$(date -u +%F)" \
+  --keywords "primary-source")
+```
+
+`bib-add.sh` prints the key and is idempotent — a source already in the
+bibliography returns its existing key and writes nothing. Call it once per
+distinct source, **not** once per archived file: one `.raw` file often cites
+several sources.
+
+Give it real metadata. `--author` and `--date` are what make a citation key
+readable and a bibliography usable; falling back to the domain and the
+retrieval year produces keys like `example2026thing` that tell you nothing.
+
+### Step 2b: Write Every Source to `.raw/`
+
+For each fetched source, passing the keys from Step 2a:
 
 ```bash
 scripts/archive-source.sh \
   --topic "The 1997 Apple–Microsoft agreement" \
   --slug "apple-microsoft-1997-agreement" \
   --url "https://news.microsoft.com/source/1997/08/06/..." \
+  --cite-key "$KEY" \
   --primary \
   --note "Primary press release" <<'CONTENT'
 {the extracted content, with exact quotations preserved}
@@ -168,6 +193,7 @@ If the research settled a contested question, save it via
 ```bash
 scripts/build-index.sh "$WIKI_ROOT"
 scripts/update-backlinks.sh "$WIKI_ROOT"
+scripts/validate-bib.sh "$WIKI_ROOT"
 scripts/log-event.sh "$WIKI_ROOT" --op research \
   --title "{topics}" --detail "{N} sources archived, {M} pages created"
 ```

@@ -27,6 +27,7 @@ URLS=()
 RAW_DIR="./.raw"
 NOTE=""
 PRIMARY=false
+CITE_KEYS=()
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -44,6 +45,7 @@ Options:
   --raw-dir <dir>  Destination directory (default: ./.raw)
   --note <text>    Retrieval caveat, e.g. "paywalled, abstract only"
   --primary        Mark this source as a primary document
+  --cite-key <key> Bibliography key from bib-add.sh. Repeat for several.
   --help, -h       Show this help
 
 Prints the archived path and its SHA-256.
@@ -55,6 +57,7 @@ USAGE
         --raw-dir) RAW_DIR="${2:-}"; shift 2 ;;
         --note)    NOTE="${2:-}"; shift 2 ;;
         --primary) PRIMARY=true; shift ;;
+        --cite-key) CITE_KEYS+=("${2:-}"); shift 2 ;;
         *) echo "Unknown option: $1 (use --help for usage)" >&2; exit 1 ;;
     esac
 done
@@ -102,6 +105,14 @@ fi
     for u in "${URLS[@]}"; do
         echo "  - $u"
     done
+    if [ "${#CITE_KEYS[@]}" -gt 0 ]; then
+        # Recorded so ingest can copy them into each page's `references:` list
+        # without re-deriving anything.
+        echo "cite_keys:"
+        for k in "${CITE_KEYS[@]}"; do
+            echo "  - $k"
+        done
+    fi
     [ -n "$NOTE" ] && echo "note: \"$NOTE\""
     echo "---"
     echo ""

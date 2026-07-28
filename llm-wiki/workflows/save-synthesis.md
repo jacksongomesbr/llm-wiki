@@ -62,6 +62,16 @@ confidence: {high|medium|low}
 
 Body: Question → Answer → Evidence (table) → Contradictions → Gaps → Confidence
 
+### Step 5b: Inherit References
+
+A synthesis rests on the sources beneath the pages it used. Collect the union
+of `references:` from every page in `based_on` and set it on the synthesis, so
+the claim chain stays traceable to primary sources rather than stopping at the
+wiki's own pages.
+
+Keep the two fields distinct: `based_on` lists internal page slugs,
+`references` lists external citation keys.
+
 ### Step 6: Cross-Link
 
 1. Add [[wikilinks]] from synthesis to all `based_on` pages

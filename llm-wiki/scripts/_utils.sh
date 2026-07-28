@@ -180,6 +180,86 @@ extract_links() {
     ' "$1" 2>/dev/null | sort -u
 }
 
+# ── Citations ───────────────────────────────────────────────────────────────
+
+# extract_citations <file> — Print every inline [@citekey] in the file, one per
+# line, deduplicated.
+#
+# Skips fenced code blocks and the generated Backlinks block, for the same
+# reasons `extract_links` does: examples in code fences are not real citations,
+# and generated content must not feed back into what generates it.
+#
+# Handles `[@key]`, `[@key, p. 4]` and `[see @key]`. An email-looking `[@foo]`
+# inside a URL is not matched because a `(` or `:` cannot precede the bracket.
+extract_citations() {
+    awk '
+        /BACKLINKS:BEGIN/ { generated = 1; next }
+        /BACKLINKS:END/   { generated = 0; next }
+        generated { next }
+        /^[[:space:]]*```/ { fenced = !fenced; next }
+        fenced { next }
+        {
+            line = $0
+            while (match(line, /\[[^][]*@[A-Za-z][A-Za-z0-9_:.-]*/)) {
+                chunk = substr(line, RSTART, RLENGTH)
+                line = substr(line, RSTART + RLENGTH)
+                sub(/^.*@/, "", chunk)
+                # Trailing punctuation is prose, not part of the key.
+                sub(/[.,;:]+$/, "", chunk)
+                if (chunk != "") print chunk
+            }
+        }
+    ' "$1" 2>/dev/null | sort -u
+}
+
+# normalise_url <url> — Canonical form used to decide whether two sources are
+# the same. Deduplication is only as good as this function.
+#
+# Forces https, drops a leading www., removes the fragment, strips tracking
+# parameters, and removes a trailing slash.
+normalise_url() {
+    printf '%s' "${1:-}" | awk '
+        {
+            u = $0
+            sub(/^http:\/\//, "https://", u)
+            if (u !~ /^https:\/\//) u = "https://" u
+            sub(/^https:\/\/www\./, "https://", u)
+            sub(/#.*$/, "", u)
+
+            # Hosts are case-insensitive, paths are not — lowercase only the
+            # authority, or two spellings of the same host look like two
+            # different sources.
+            rest = substr(u, 9)
+            slash = index(rest, "/")
+            if (slash > 0) {
+                host = substr(rest, 1, slash - 1)
+                path = substr(rest, slash)
+            } else {
+                host = rest
+                path = ""
+            }
+            u = "https://" tolower(host) path
+
+            # Strip tracking params, keeping any meaningful query behind.
+            if (match(u, /\?/)) {
+                base = substr(u, 1, RSTART - 1)
+                query = substr(u, RSTART + 1)
+                n = split(query, parts, "&")
+                keep = ""
+                for (i = 1; i <= n; i++) {
+                    if (parts[i] ~ /^(utm_[^=]*|fbclid|gclid|mc_[ce]id|ref|source)=/) continue
+                    if (parts[i] == "") continue
+                    keep = (keep == "" ? parts[i] : keep "&" parts[i])
+                }
+                u = (keep == "" ? base : base "?" keep)
+            }
+
+            sub(/\/+$/, "", u)
+            print u
+        }
+    '
+}
+
 # ── Aggregate hashes ────────────────────────────────────────────────────────
 
 # wiki_frontmatter_hash <wiki_root> — Stable hash over every page's

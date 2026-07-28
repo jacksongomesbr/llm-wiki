@@ -554,6 +554,175 @@ assert_eq "$?" "1" "requires --slug and --url"
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
+# bib-add.sh
+# ════════════════════════════════════════════════════════════════════════════
+
+if should_run "bib-add"; then
+describe "bib-add.sh"
+
+D="$(mktemp -d)"; TMPDIRS="$TMPDIRS $D"
+F="$D/references.bib"
+add() { bash "$SCRIPTS/bib-add.sh" --bib "$F" "$@"; }
+
+K1="$(add --author "Microsoft Corporation" --title "Microsoft and Apple Affirm Commitment" \
+        --date 1997-08-06 --url "https://news.microsoft.com/source/1997/08/06/ms-apple/")"
+assert_eq "$K1" "microsoft1997apple" "corporate author yields authorYEARword"
+
+K2="$(add --title "Steve Jobs" --date 2026 --url "https://en.wikipedia.org/wiki/Steve_Jobs")"
+assert_eq "$K2" "wikipedia2026steve" "falls back to the host registrable name, not the subdomain"
+
+K3="$(add --author "Doe, Jane" --title "A Study of Things" --year 2021 --url "https://example.com/study")"
+assert_eq "$K3" "doe2021study" "surname-first personal author"
+
+K4="$(add --author "Jane Doe" --title "Another Paper" --year 2022 --url "https://example.com/paper")"
+assert_eq "$K4" "doe2022another" "firstname-lastname personal author"
+
+# Idempotency is what stops re-running research from duplicating entries.
+BEFORE="$(cat "$F")"
+K2B="$(add --title "Steve Jobs" --date 2026 --url "http://www.en.wikipedia.org/wiki/Steve_Jobs/?utm_campaign=x")"
+assert_eq "$K2B" "$K2" "re-adding the same URL returns the existing key"
+assert_eq "$(cat "$F")" "$BEFORE" "re-adding writes nothing to the file"
+
+KD1="$(add --title "Paper With DOI" --doi "10.1234/abc.def" --year 2019 --url "https://publisher.example/a")"
+KD2="$(add --title "Paper With DOI, mirror" --doi "10.1234/ABC.DEF" --year 2019 --url "https://mirror.example/b")"
+assert_eq "$KD2" "$KD1" "DOI wins over URL for identity, case-insensitively"
+
+KC="$(add --title "Steve Jobs" --date 2026 --url "https://wikipedia.org/elsewhere/Steve_Jobs")"
+assert_eq "$KC" "${K2}a" "a genuinely different source collides to an a-suffix"
+
+KE="$(add --title "R&D at 100% cost_basis" --year 2020 --url "https://example.com/rd")"
+assert_contains "$(cat "$F")" 'R\&D at 100\% cost\_basis' "escapes BibTeX special characters"
+assert_eq "$KE" "example2020cost" "skips numeric and stopword title words"
+
+assert_contains "$(cat "$F")" "author   = {{Microsoft Corporation}}" \
+    "brace-protects corporate authors so BibLaTeX keeps them intact"
+assert_contains "$(cat "$F")" "url      = {https://news.microsoft.com/source/1997/08/06/ms-apple}" \
+    "stores the normalised URL"
+
+bash "$SCRIPTS/bib-add.sh" --bib "$F" --title "No Locator" >/dev/null 2>&1
+assert_eq "$?" "1" "requires --url or --doi"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
+# validate-bib.sh
+# ════════════════════════════════════════════════════════════════════════════
+
+if should_run "validate-bib"; then
+describe "validate-bib.sh"
+
+W="$(new_wiki)"
+KEY="$(bash "$SCRIPTS/bib-add.sh" --bib "$W/references.bib" --title "Steve Jobs" \
+       --date 2026 --url "https://en.wikipedia.org/wiki/Steve_Jobs")"
+
+cited_page() {
+    cat > "$W/$1.md" <<EOF
+---
+title: "$1"
+type: concept
+language: en
+created: 2026-01-01
+modified: 2026-01-01
+tags: [test]
+summary: "page $1"
+references: [$2]
+---
+# $1
+$3
+EOF
+}
+
+cited_page cites "$KEY" "A sourced claim [@$KEY]."
+OUT="$(bash "$SCRIPTS/validate-bib.sh" "$W" 2>&1)"
+RC=$?
+assert_contains "$OUT" "OK:" "clean wiki passes"
+assert_eq "$RC" "0" "exits 0 when everything resolves"
+
+cited_page dangling "nosuch2020key" "Cites nothing real [@nosuch2020key]."
+OUT="$(bash "$SCRIPTS/validate-bib.sh" "$W" 2>&1)"
+RC=$?
+assert_contains "$OUT" "has no entry" "reports a dangling citation"
+assert_eq "$RC" "1" "exits 1 on a dangling citation"
+rm "$W/dangling.md"
+
+cited_page drift "" "Body cites [@$KEY] but frontmatter does not."
+OUT="$(bash "$SCRIPTS/validate-bib.sh" "$W" 2>&1)"
+assert_contains "$OUT" "missing from references:" "reports frontmatter/body drift"
+rm "$W/drift.md"
+
+bash "$SCRIPTS/bib-add.sh" --bib "$W/references.bib" --title "Nobody Cites Me" \
+     --year 2020 --url "https://example.com/uncited" >/dev/null
+OUT="$(bash "$SCRIPTS/validate-bib.sh" "$W" 2>&1)"
+assert_contains "$OUT" "not cited by any page" "reports an orphan bibliography entry"
+
+printf '@online{dupe,\n  title = {A},\n  url = {https://a.example},\n}\n@online{dupe,\n  title = {B},\n  url = {https://b.example},\n}\n' \
+    >> "$W/references.bib"
+OUT="$(bash "$SCRIPTS/validate-bib.sh" "$W" 2>&1)"
+assert_contains "$OUT" "duplicate citation key" "reports duplicate keys"
+
+W2="$(new_wiki)"
+valid_page "$W2" "plain" "No citations at all."
+OUT="$(bash "$SCRIPTS/validate-bib.sh" "$W2" 2>&1)"
+RC=$?
+assert_eq "$RC" "0" "a wiki with no citations is valid"
+
+# Validate against the real BibLaTeX data model, not just our own parser.
+# CI runners have no TeX distribution, so this is skipped when biber is absent
+# — the same pattern ci-local.sh uses for shellcheck.
+if command -v biber >/dev/null 2>&1; then
+    W3="$(new_wiki)"
+    bash "$SCRIPTS/bib-add.sh" --bib "$W3/references.bib" --type report \
+        --author "Library of Congress" --institution "Library of Congress" \
+        --genre "research guide" --title "A Report" --date 2024 \
+        --url "https://example.gov/report" >/dev/null
+    bash "$SCRIPTS/bib-add.sh" --bib "$W3/references.bib" \
+        --author "Microsoft Corporation" --title "A Press Release" --date 1997-08-06 \
+        --url "https://news.microsoft.com/x" >/dev/null
+    BIBER_OUT="$(cd "$W3" && biber --tool --validate-datamodel --nolog \
+        --output-file /dev/null references.bib 2>&1 || true)"
+    assert_not_contains "$BIBER_OUT" "WARN - Datamodel" \
+        "biber accepts the generated bibliography against the BibLaTeX data model"
+else
+    printf '  \033[1;33m-\033[0m biber not installed — skipping data-model validation\n'
+fi
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
+# citation + URL helpers
+# ════════════════════════════════════════════════════════════════════════════
+
+if should_run "citations"; then
+describe "_utils.sh citation helpers"
+
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../llm-wiki/scripts/_utils.sh
+source "$SCRIPTS/_utils.sh"
+
+D="$(mktemp -d)"; TMPDIRS="$TMPDIRS $D"
+cat > "$D/c.md" <<'EOF'
+---
+title: "C"
+---
+One [@alpha1990x] and two [@beta2000y, p. 4], plus [see @gamma2010z].
+Not a citation: contact foo(@example) here.
+```
+[@fenced2020ignored]
+```
+<!-- BACKLINKS:BEGIN -->
+[@generated2020ignored]
+<!-- BACKLINKS:END -->
+EOF
+CITES="$(extract_citations "$D/c.md" | tr '\n' ' ')"
+assert_eq "$CITES" "alpha1990x beta2000y gamma2010z " "extract_citations finds every inline key"
+assert_not_contains "$CITES" "fenced" "ignores citations in fenced code"
+assert_not_contains "$CITES" "generated" "ignores citations in the Backlinks block"
+
+assert_eq "$(normalise_url 'http://www.Example.COM/Path/')" "https://example.com/Path" \
+    "normalise_url lowercases the host but preserves path case"
+assert_eq "$(normalise_url 'https://e.com/p?utm_source=a&id=7#frag')" "https://e.com/p?id=7" \
+    "normalise_url drops tracking params and fragments, keeps real query"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
 # Summary
 # ════════════════════════════════════════════════════════════════════════════
 
