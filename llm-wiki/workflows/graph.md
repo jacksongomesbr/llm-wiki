@@ -37,7 +37,20 @@ Write to `$WIKI_ROOT/.llm-wiki/graph.json`.
 
 Create a self-contained HTML file at `$WIKI_ROOT/.llm-wiki/graph.html` with:
 
-- Dark-themed D3.js v7 force-directed graph (CDN: `d3js.org/d3.v7.min.js`)
+- Dark-themed D3.js v7 force-directed graph. **Load D3 in this order:**
+  1. If `$WIKI_ROOT/.llm-wiki/vendor/d3.v7.min.js` exists, inline it or link it
+     relatively — the graph then works offline and pulls in no third-party code.
+  2. Otherwise fall back to the CDN **with Subresource Integrity pinned**:
+
+     ```html
+     <script src="https://d3js.org/d3.v7.min.js"
+             integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"
+             crossorigin="anonymous"></script>
+     ```
+
+  Suggest `scripts/vendor-d3.sh` to the user when falling back: an unpinned
+  CDN script in a file they open locally is arbitrary remote code execution,
+  and the graph is useless without a network.
 - Color-coded nodes by `type`: concept=#5b9bd5, note=#ed7d31, entity=#70ad47,
   synthesis=#ffc000, project=#c0504d, area=#8064a2
 - Entities are additionally shaped by `class` (person=circle, organization=square,

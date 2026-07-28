@@ -88,6 +88,10 @@ When you are invoked (via `Skill("wiki")`), determine which workflow to follow b
 | `scripts/archive-source.sh` | Write fetched web content to `.raw/` with provenance |
 | `scripts/bib-add.sh` | **Only writer of `references.bib`** — dedupes, returns a stable key |
 | `scripts/validate-bib.sh` | Check citations resolve and entries are cited |
+| `scripts/provenance.sh` | Trace what a page rests on, or what a source produced |
+| `scripts/convert-source.sh` | Convert PDF/docx/epub/html into markdown for ingestion |
+| `scripts/vendor-d3.sh` | Vendor D3 so the knowledge graph works offline |
+| `config_get` in `_utils.sh` | Read a setting from `.llm-wiki/config.md` |
 | `./wiki/references.bib` | BibLaTeX bibliography of every external source |
 | `./wiki/.llm-wiki/` | Wiki metadata (index, log, cache, review queue) |
 | `./wiki/.llm-wiki/log.md` | Chronological record of ingests, queries and lints |

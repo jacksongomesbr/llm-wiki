@@ -180,6 +180,44 @@ extract_links() {
     ' "$1" 2>/dev/null | sort -u
 }
 
+# ── Configuration ───────────────────────────────────────────────────────────
+
+# config_get <wiki_root> <key> [default] — Read a setting from .llm-wiki/config.md
+#
+# The file's settings live in a real YAML frontmatter block, so the same parser
+# used for pages reads them. Earlier versions put `key: value` lines *between*
+# `---` markers in the middle of the document, under `##` headings — which is
+# not YAML and could not be parsed by anything, so every documented setting
+# (`require_review`, `max_pages_to_read`, ...) was decorative. That layout is
+# still read, as a fallback, so an existing wiki keeps working.
+config_get() {
+    local root="${1:-.}" key="$2" default="${3:-}" cfg value
+    cfg="$root/.llm-wiki/config.md"
+    [ -f "$cfg" ] || { printf '%s' "$default"; return 0; }
+
+    value="$(fm_field "$(extract_frontmatter "$cfg")" "$key")"
+    # YAML treats " #..." after a value as a comment; fm_field does not strip it,
+    # because a page's summary may legitimately contain a hash.
+    # Strip the comment first, THEN the quotes: fm_field removes a leading quote
+    # but the trailing one is buried behind the comment, leaving `en"`.
+    value="$(printf '%s' "$value" \
+        | sed 's/[[:space:]]\{1,\}#.*$//; s/[[:space:]]*$//; s/^["'"'"']//; s/["'"'"']$//')"
+
+    if [ -z "$value" ]; then
+        # Legacy layout: bare key: value lines anywhere in the body.
+        value="$(awk -v k="$key" '
+            index($0, k ":") == 1 {
+                sub("^" k ":[[:space:]]*", "")
+                sub(/[[:space:]]*#.*$/, "")            # strip trailing comment
+                gsub(/^["'"'"']|["'"'"']$/, "")
+                print; exit
+            }' "$cfg")"
+    fi
+
+    [ -z "$value" ] && value="$default"
+    printf '%s' "$value"
+}
+
 # ── Citations ───────────────────────────────────────────────────────────────
 
 # extract_citations <file> — Print every inline [@citekey] in the file, one per

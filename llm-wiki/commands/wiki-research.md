@@ -10,9 +10,20 @@ The user ran `/wiki-research $ARGUMENTS`.
 Unlike `/wiki-ingest`, which takes a source you already have, this discovers the
 sources first. Nothing needs to be in `.raw/` beforehand.
 
+## Wiki Root
+
+Resolve it, do not assume `./wiki`:
+
+1. `$LLM_WIKI_ROOT` if set
+2. otherwise the nearest `wiki/` walking up from the current directory
+3. otherwise ask
+
+`scripts/_utils.sh` exposes `find_wiki_root` which implements exactly this; every
+script already uses it. A project may hold more than one wiki (`wiki-research/`,
+`wiki-personal/`), so a hardcoded `./wiki` silently targets the wrong one.
+
 ## Key Paths
 
-- Wiki root: `./wiki/` (or `$LLM_WIKI_ROOT`)
 - Source archive: `./.raw/`
 - Skill directory: `~/.claude/skills/llm-wiki/`
 
@@ -20,7 +31,7 @@ sources first. Nothing needs to be in `.raw/` beforehand.
 
 ### 1. Check what the wiki already knows
 
-Read `./wiki/.llm-wiki/index.md`. If a topic is already covered, say so and ask
+Read `$WIKI_ROOT/.llm-wiki/index.md`. If a topic is already covered, say so and ask
 whether to deepen it or skip it.
 
 ### 2. State the plan before spending searches

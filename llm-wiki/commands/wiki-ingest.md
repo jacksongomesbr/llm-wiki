@@ -7,9 +7,20 @@ argument-hint: <file|URL>
 
 The user ran `/wiki-ingest $ARGUMENTS`.
 
+## Wiki Root
+
+Resolve it, do not assume `./wiki`:
+
+1. `$LLM_WIKI_ROOT` if set
+2. otherwise the nearest `wiki/` walking up from the current directory
+3. otherwise ask
+
+`scripts/_utils.sh` exposes `find_wiki_root` which implements exactly this; every
+script already uses it. A project may hold more than one wiki (`wiki-research/`,
+`wiki-personal/`), so a hardcoded `./wiki` silently targets the wrong one.
+
 ## Key Paths
 
-- Wiki root: `./wiki/` (or `$LLM_WIKI_ROOT`)
 - Source files: `./.raw/`
 - Skill directory: `~/.claude/skills/llm-wiki/`
 
@@ -17,7 +28,7 @@ The user ran `/wiki-ingest $ARGUMENTS`.
 
 ### 1. Verify wiki exists
 
-Check `./wiki/.llm-wiki/index.md`. If not found, offer to run init-wiki.sh.
+Check `$WIKI_ROOT/.llm-wiki/index.md`. If not found, offer to run init-wiki.sh.
 
 ### 2. Identify and hash the source
 
@@ -26,7 +37,7 @@ Check `./wiki/.llm-wiki/index.md`. If not found, offer to run init-wiki.sh.
 
 ### 3. Check if already ingested
 
-Look for sentinel: `./wiki/.llm-wiki/cache/ingests/$HASH.done`
+Look for sentinel: `$WIKI_ROOT/.llm-wiki/cache/ingests/$HASH.done`
 
 ### 4. Load the full workflow
 

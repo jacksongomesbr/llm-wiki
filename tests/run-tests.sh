@@ -932,6 +932,96 @@ assert_eq "$(cmp -s "$PROJECT_ROOT/llm-wiki/WIKI_SCHEMA.md" "$W/.llm-wiki/schema
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
+# config_get / provenance / convert-source
+# ════════════════════════════════════════════════════════════════════════════
+
+if should_run "config"; then
+describe "config_get"
+
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../llm-wiki/scripts/_utils.sh
+source "$SCRIPTS/_utils.sh"
+
+W="$(new_wiki)"
+assert_eq "$(config_get "$W" wiki_name)" "My Wiki" "reads a quoted string"
+assert_eq "$(config_get "$W" max_pages_to_read)" "5" "strips the trailing comment"
+assert_eq "$(config_get "$W" language)" "en" "strips quotes even behind a comment"
+assert_eq "$(config_get "$W" require_review)" "true" "reads a boolean"
+assert_eq "$(config_get "$W" nope fallback)" "fallback" "returns the default for a missing key"
+
+# The pre-0.5.0 layout put key: value lines in the body, between `---` markers
+# placed mid-document. Not YAML, but existing wikis have it.
+cat > "$W/.llm-wiki/config.md" <<'EOF'
+# Wiki Configuration
+
+---
+
+## Query Settings
+max_pages_to_read: 9         # Maximum pages to read per query
+EOF
+assert_eq "$(config_get "$W" max_pages_to_read)" "9" "still reads the legacy layout"
+fi
+
+if should_run "provenance"; then
+describe "provenance.sh"
+
+W="$(new_wiki)"
+K="$(bash "$SCRIPTS/bib-add.sh" --bib "$W/references.bib" --title "A Source" \
+     --year 2020 --url "https://example.com/s")"
+cat > "$W/sourced.md" <<EOF
+---
+title: "Sourced"
+type: concept
+language: en
+created: 2026-01-01
+modified: 2026-01-01
+tags: [t]
+summary: "has a source"
+references: [$K]
+---
+# Sourced
+Claim [@$K].
+EOF
+valid_page "$W" "bare" "No references at all."
+
+assert_contains "$(bash "$SCRIPTS/provenance.sh" "$W" --page sourced)" "A Source" \
+    "--page resolves citation keys to titles"
+assert_contains "$(bash "$SCRIPTS/provenance.sh" "$W" --source "$K")" "[[sourced]]" \
+    "--source lists the pages resting on it"
+assert_contains "$(bash "$SCRIPTS/provenance.sh" "$W" --unsourced)" "bare" \
+    "--unsourced reports a page with no references"
+assert_not_contains "$(bash "$SCRIPTS/provenance.sh" "$W" --unsourced)" "sourced (" \
+    "--unsourced does not report a sourced page"
+assert_contains "$(bash "$SCRIPTS/provenance.sh" "$W")" "**Bibliography entries:** 1" \
+    "the summary counts bibliography entries"
+fi
+
+if should_run "convert"; then
+describe "convert-source.sh"
+
+D="$(mktemp -d)"; TMPDIRS="$TMPDIRS $D"
+printf 'Plain source text.\n' > "$D/notes.txt"
+OUT="$(bash "$SCRIPTS/convert-source.sh" "$D/notes.txt" --raw-dir "$D/raw" | head -1)"
+assert_eq "$([ -f "$OUT" ] && echo yes || echo no)" "yes" "converts a plain text source"
+BODY="$(cat "$OUT")"
+assert_contains "$BODY" "Plain source text." "preserves the content"
+assert_contains "$BODY" "original_sha256:" "records the original's hash for provenance"
+assert_contains "$BODY" "converted_from:" "records the source format"
+
+printf 'x' > "$D/thing.xyz"
+bash "$SCRIPTS/convert-source.sh" "$D/thing.xyz" --raw-dir "$D/raw" >/dev/null 2>&1
+assert_eq "$?" "2" "exits 2 for an unsupported format (cannot, not failed)"
+
+if command -v pandoc >/dev/null 2>&1; then
+    printf '<h1>Doc</h1><p>A <b>claim</b>.</p>' > "$D/page.html"
+    OUT="$(bash "$SCRIPTS/convert-source.sh" "$D/page.html" --raw-dir "$D/raw" | head -1)"
+    assert_contains "$(cat "$OUT")" "A **claim**." "converts HTML to markdown via pandoc"
+else
+    printf '  \033[1;33m-\033[0m pandoc not installed — skipping HTML conversion\n'
+fi
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
 # Summary
 # ════════════════════════════════════════════════════════════════════════════
 

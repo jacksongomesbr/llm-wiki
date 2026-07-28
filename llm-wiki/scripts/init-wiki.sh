@@ -44,36 +44,41 @@ echo "  ✓ schema.md"
 # Create config.md if it doesn't exist
 if [ ! -f "$WIKI_ROOT/.llm-wiki/config.md" ] || [ "$FORCE" = true ]; then
     cat > "$WIKI_ROOT/.llm-wiki/config.md" << 'CONFEOF'
+---
+# Settings live in this frontmatter block so they are actually parseable.
+# Read them with scripts/_utils.sh -> config_get "$WIKI_ROOT" <key>.
+
+wiki_name: "My Wiki"
+language: "en"                 # en | zh | bilingual
+
+# Ingest
+auto_index: true               # Regenerate the index after each change
+two_phase: true                # Phase 1 analysis, then Phase 2 generation
+require_review: true           # Pause for approval between the two phases
+
+# Query
+max_pages_to_read: 5           # Pages read per query
+prefer_language_match: true    # Prefer pages in the query's language
+
+# Lint
+lint_on_startup: false         # Run quick lint at session start
+full_lint_frequency: 10        # Suggest a full lint every N ingests
+
+# Bibliography
+require_citations: false       # Warn when a page asserts facts with no references
+---
+
 # Wiki Configuration
 
-This document uses a standard YAML block for settings. The frontmatter
-between `---` markers is machine-parseable; the surrounding markdown
-provides human-readable documentation.
+Edit the values in the frontmatter above. Lines beginning with `#` are
+comments.
 
----
-
-## Wiki Settings
-wiki_name: "My Wiki"
-wiki_root: "./wiki"
-language: "bilingual"       # en | zh | bilingual
-
-## Ingest Settings
-auto_index: true             # Auto-regenerate index after each change
-two_phase: true              # Use two-phase ingest (Phase 1 analysis, Phase 2 generation)
-require_review: true         # Require user review of Phase 1 analysis before Phase 2
-
-## Query Settings
-max_pages_to_read: 5         # Maximum pages to read per query
-prefer_language_match: true  # Prefer pages in query language
-
-## Lint Settings
-lint_on_startup: false       # Run quick lint on session start
-full_lint_frequency: 10      # Suggest full lint every N ingests
-
----
-
-To change a setting, edit the value after the colon. Lines beginning
-with `#` are comments and are ignored.
+| Setting | Effect |
+|---------|--------|
+| `require_review` | Whether `/wiki-ingest` waits for approval after Phase 1 |
+| `max_pages_to_read` | How many pages `/wiki-query` reads before answering |
+| `full_lint_frequency` | How often a full semantic lint is suggested |
+| `require_citations` | Whether pages without `references:` are flagged |
 CONFEOF
     echo "  ✓ config.md"
 fi

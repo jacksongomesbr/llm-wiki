@@ -376,9 +376,19 @@ Present a clean summary to the user:
 
 ### Source in an Unsupported Format
 
-- `.pdf`: Use `Read` tool with pages parameter (may need OCR for scanned PDFs)
-- `.docx`, `.epub`: Suggest user convert to markdown or plain text first
-- Images: Describe that text extraction requires OCR — suggest user provide text
+Run the converter rather than asking the user to do it by hand:
+
+```bash
+scripts/convert-source.sh <file>      # pdf docx odt epub html rtf tex
+```
+
+It writes a normal `.raw/` markdown file with provenance frontmatter (including
+the original's SHA-256) and prints the path and hash, so ingestion continues
+unchanged from Step 2.
+
+- Exit 2 means no converter is installed; it names the one to install.
+- A PDF that converts to nothing is usually a scan and needs OCR — say so.
+- Images still require the user to supply text.
 
 ### Source Already Partially Ingested
 

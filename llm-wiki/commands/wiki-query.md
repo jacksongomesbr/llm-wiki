@@ -7,15 +7,27 @@ argument-hint: <question>
 
 The user asked: `/wiki-query $ARGUMENTS`
 
+## Wiki Root
+
+Resolve it, do not assume `./wiki`:
+
+1. `$LLM_WIKI_ROOT` if set
+2. otherwise the nearest `wiki/` walking up from the current directory
+3. otherwise ask
+
+`scripts/_utils.sh` exposes `find_wiki_root` which implements exactly this; every
+script already uses it. A project may hold more than one wiki (`wiki-research/`,
+`wiki-personal/`), so a hardcoded `./wiki` silently targets the wrong one.
+
 ## Procedure
 
 ### 1. Find wiki root
 
-Check `./wiki/.llm-wiki/` — if missing, wiki needs to be initialized first.
+Check `$WIKI_ROOT/.llm-wiki/` — if missing, wiki needs to be initialized first.
 
 ### 2. Read the index
 
-Read `./wiki/.llm-wiki/index.md` for the full page catalog (tags, titles, summaries, types).
+Read `$WIKI_ROOT/.llm-wiki/index.md` for the full page catalog (tags, titles, summaries, types).
 
 ### 3. Match query to pages
 

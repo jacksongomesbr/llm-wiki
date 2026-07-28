@@ -270,6 +270,24 @@ For each page, assess:
    - Medium-priority gaps (nice-to-have expansions)
    - Source suggestions for filling each gap
 
+### Step F6b: Offer to Fill Gaps (`--fix`)
+
+When invoked as `/wiki-lint --full --fix`, act on the gap analysis rather than
+only reporting it:
+
+1. For each **high-priority** gap — a concept referenced by several pages but
+   having none of its own — create a stub from what the citing pages already
+   say:
+   - `status: stub`, `confidence: low`
+   - body limited to what the existing pages assert, with `[[wikilinks]]` back
+     to them
+   - **no invented content**: a stub that reads as authoritative is worse than
+     no page, because the next reader cannot tell them apart
+2. Never auto-create medium or low priority gaps; list them instead.
+3. Report every stub created, so the user can delete any that were a bad call.
+
+Without `--fix`, only report.
+
 ### Step F7: Add to Review Queue
 
 For issues that require human judgment:
