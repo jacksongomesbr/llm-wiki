@@ -69,21 +69,35 @@ while IFS= read -r -d '' file; do
     done
 done < <(wiki_pages "$WIKI_ROOT")
 
+RAWEDGES="$TMP/rawedges.tsv"
+: > "$RAWEDGES"
 while IFS= read -r -d '' file; do
     src="$(page_slug "$file")"
     extract_links "$file" | while IFS= read -r target; do
-        [ -z "$target" ] && continue
-        resolved=""
-        if grep -qFx "$target" "$SLUGS"; then
-            resolved="$target"
-        elif [ -s "$ALIASES" ]; then
-            resolved="$(awk -F'\t' -v a="$target" '$1 == a { print $2; exit }' "$ALIASES")"
-        fi
-        if [ -n "$resolved" ] && [ "$resolved" != "$src" ]; then
-            printf '%s\t%s\n' "$resolved" "$src" >> "$EDGES"
-        fi
+        if [ -n "$target" ]; then printf '%s\t%s\n' "$src" "$target" >> "$RAWEDGES"; fi
     done
 done < <(wiki_pages "$WIKI_ROOT")
+
+# Resolve every link in one awk pass. Doing it per link cost a grep, and an awk
+# for the alias lookup, for every wikilink in the wiki.
+if [ -s "$RAWEDGES" ]; then
+    awk -F'\t' '
+        FILENAME == slugfile  { slug[$1] = 1; next }
+        FILENAME == aliasfile { alias[$1] = $2; next }
+        {
+            resolved = ($2 in slug) ? $2 : ($2 in alias ? alias[$2] : "")
+            if (resolved != "" && resolved != $1) printf "%s\t%s\n", resolved, $1
+        }
+    ' slugfile="$SLUGS" aliasfile="$ALIASES" "$SLUGS" "$ALIASES" "$RAWEDGES" >> "$EDGES"
+fi
+
+sort -u -o "$EDGES" "$EDGES"
+
+# Pre-group the backlinks per target once, instead of scanning the edge list
+# twice for every page.
+BYTARGET="$TMP/bytarget.tsv"
+awk -F'\t' '{ if (!($0 in seen)) { seen[$0] = 1; list[$1] = list[$1] (list[$1] == "" ? "" : " ") $2 } }
+             END { for (t in list) printf "%s\t%s\n", t, list[t] }' "$EDGES" | sort > "$BYTARGET"
 
 CHANGED=0
 
@@ -96,7 +110,7 @@ while IFS= read -r -d '' file; do
         echo ""
         echo "## Backlinks"
         echo ""
-        sources="$(awk -F'\t' -v t="$slug" '$1 == t { print $2 }' "$EDGES" | sort -u)"
+        sources="$(awk -F'\t' -v t="$slug" '$1 == t { n = split($2, a, " "); for (i = 1; i <= n; i++) print a[i]; exit }' "$BYTARGET" | sort)"
         if [ -z "$sources" ]; then
             echo "*No pages link here yet.*"
         else

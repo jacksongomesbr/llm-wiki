@@ -60,9 +60,23 @@ check_page() {
         return
     fi
 
+    # One awk pass for every field this function inspects. Reading them one at a
+    # time spawned a subshell and an awk per field per page.
+    local v_title v_type v_language v_created v_modified v_summary v_class v_status
+    {
+        IFS= read -r v_title; IFS= read -r v_type; IFS= read -r v_language
+        IFS= read -r v_created; IFS= read -r v_modified; IFS= read -r v_summary
+        IFS= read -r v_class; IFS= read -r v_status
+    } < <(fm_fields "$frontmatter" title type language created modified summary class status)
+
     local field val
     for field in "${SCALAR_FIELDS[@]}"; do
-        val="$(fm_field "$frontmatter" "$field")"
+        case "$field" in
+            title)    val="$v_title" ;;    type)     val="$v_type" ;;
+            language) val="$v_language" ;; created)  val="$v_created" ;;
+            modified) val="$v_modified" ;; summary)  val="$v_summary" ;;
+            *)        val="$(fm_field "$frontmatter" "$field")" ;;
+        esac
         if [ -z "$val" ]; then
             echo "ERROR: $rel — Missing required field '$field'"
             ISSUES_FOUND=1
@@ -82,7 +96,7 @@ check_page() {
     fi
 
     local ptype valid vt lt
-    ptype="$(fm_field "$frontmatter" type)"
+    ptype="$v_type"
     if [ -n "$ptype" ]; then
         valid=0
         for vt in "${VALID_TYPES[@]}"; do
@@ -109,7 +123,7 @@ check_page() {
     # `class` says what kind of thing an entity is. Required for entities,
     # meaningless for anything else.
     local pclass vc
-    pclass="$(fm_field "$frontmatter" class)"
+    pclass="$v_class"
     if [ "$ptype" = "entity" ]; then
         if [ -z "$pclass" ]; then
             echo "ERROR: $rel — type 'entity' requires a 'class' (one of: ${VALID_CLASSES[*]})"
@@ -132,7 +146,7 @@ check_page() {
     # `status` is optional everywhere, but a project without one cannot be
     # triaged, which defeats the point of having projects.
     local pstatus vs
-    pstatus="$(fm_field "$frontmatter" status)"
+    pstatus="$v_status"
     if [ -n "$pstatus" ]; then
         valid=0
         for vs in "${VALID_STATUSES[@]}"; do
@@ -161,8 +175,8 @@ check_page() {
     fi
 
     local created modified date_val
-    created="$(fm_field "$frontmatter" created)"
-    modified="$(fm_field "$frontmatter" modified)"
+    created="$v_created"
+    modified="$v_modified"
     for date_val in "$created" "$modified"; do
         if [ -n "$date_val" ] && ! echo "$date_val" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
             echo "ERROR: $rel — Invalid date format '$date_val' (must be YYYY-MM-DD)"

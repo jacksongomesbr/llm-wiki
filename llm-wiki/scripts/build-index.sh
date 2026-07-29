@@ -126,20 +126,19 @@ done < <(wiki_pages "$WIKI_ROOT" | sort -z)
 INBOUND="$TMP/inbound.txt"
 : > "$INBOUND"
 
+# One awk pass. Resolving links one at a time spawned `cut | grep` per link —
+# two processes for every wikilink in the wiki.
 if [ -s "$EDGES" ]; then
-    while IFS="$(printf '\t')" read -r src target; do
-        [ -z "$target" ] && continue
-        resolved=""
-        if cut -f1 "$META" | grep -qFx "$target"; then
-            resolved="$target"
-        elif [ -s "$ALIASES" ]; then
-            resolved="$(awk -F'\t' -v a="$target" '$1 == a { print $2; exit }' "$ALIASES")"
-        fi
-        # Self-links do not rescue a page from being an orphan.
-        if [ -n "$resolved" ] && [ "$resolved" != "$src" ]; then
-            echo "$resolved" >> "$INBOUND"
-        fi
-    done < "$EDGES"
+    awk -F'\t' '
+        FILENAME == metafile { slug[$1] = 1; next }
+        FILENAME == aliasfile { alias[$1] = $2; next }
+        {
+            target = $2
+            resolved = (target in slug) ? target : (target in alias ? alias[target] : "")
+            # Self-links do not rescue a page from being an orphan.
+            if (resolved != "" && resolved != $1) print resolved
+        }
+    ' metafile="$META" aliasfile="$ALIASES" "$META" "$ALIASES" "$EDGES" >> "$INBOUND"
 fi
 
 sort -u -o "$INBOUND" "$INBOUND"
@@ -177,17 +176,28 @@ INDEX="$META_DIR/index.md"
     echo "## By Tag"
     echo ""
     if [ -s "$TAGS" ]; then
-        sort -u "$TAGS" | cut -f1 | sort -u | while IFS= read -r tag; do
-            [ -z "$tag" ] && continue
-            n="$(awk -F'\t' -v t="$tag" '$1 == t' "$TAGS" | sort -u | wc -l | tr -d ' ')"
-            echo "### $tag ($n pages)"
-            echo ""
-            awk -F'\t' -v t="$tag" '$1 == t { print $2 }' "$TAGS" | sort -u | while IFS= read -r slug; do
-                summary="$(awk -F'\t' -v s="$slug" '$1 == s { print $5; exit }' "$META")"
-                echo "- [[$slug]] — $summary"
-            done
-            echo ""
-        done
+        # One awk pass for the whole section. Previously each tag cost a scan to
+        # count it, another to list it, and one more per slug to fetch a summary.
+        sort -u "$TAGS" | awk -F'\t' '
+            FILENAME == metafile { summary[$1] = $5; next }
+            { if (!($1 SUBSEP $2 in seen)) { seen[$1 SUBSEP $2] = 1; tags[$1] = tags[$1] $2 "\n"; count[$1]++ } }
+            END {
+                n = 0
+                for (t in tags) order[n++] = t
+                # sort -u already gave us tag order; re-sort for determinism.
+                for (i = 0; i < n; i++)
+                    for (j = i + 1; j < n; j++)
+                        if (order[j] < order[i]) { tmp = order[i]; order[i] = order[j]; order[j] = tmp }
+                for (i = 0; i < n; i++) {
+                    t = order[i]
+                    printf "### %s (%d pages)\n\n", t, count[t]
+                    split(tags[t], slugs, "\n")
+                    for (k = 1; k in slugs; k++)
+                        if (slugs[k] != "") printf "- [[%s]] — %s\n", slugs[k], summary[slugs[k]]
+                    printf "\n"
+                }
+            }
+        ' metafile="$META" "$META" -
     else
         echo "*No tags yet.*"
         echo ""
@@ -228,12 +238,15 @@ INDEX="$META_DIR/index.md"
     echo ""
     ORPHAN_COUNT=0
     if [ "$PAGE_COUNT" -gt 0 ]; then
-        while IFS="$(printf '\t')" read -r slug _ptype _lang _title summary _modified _tags _class _status _area; do
-            if ! grep -qFx "$slug" "$INBOUND" 2>/dev/null; then
-                echo "- [[$slug]] — $summary (no incoming links)"
-                ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
-            fi
-        done < "$META"
+        # One awk pass instead of a grep per page.
+        ORPHANS_OUT="$(awk -F'\t' '
+            FILENAME == inbound { seen[$0] = 1; next }
+            !($1 in seen) { printf "- [[%s]] — %s (no incoming links)\n", $1, $5 }
+        ' inbound="$INBOUND" "$INBOUND" "$META")"
+        if [ -n "$ORPHANS_OUT" ]; then
+            printf '%s\n' "$ORPHANS_OUT"
+            ORPHAN_COUNT=1
+        fi
     fi
     [ "$ORPHAN_COUNT" -eq 0 ] && echo "*None.*"
     echo ""
