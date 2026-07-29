@@ -124,6 +124,7 @@ REQUIRED_FILES=(
     "scripts/convert-source.sh"
     "scripts/vendor-d3.sh"
     "scripts/build-graph.sh"
+    "scripts/check-graph-stale.sh"
     "commands/wiki-ingest.md"
     "commands/wiki-query.md"
     "commands/wiki-research.md"

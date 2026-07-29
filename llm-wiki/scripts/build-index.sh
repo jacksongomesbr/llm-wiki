@@ -79,20 +79,19 @@ while IFS= read -r -d '' file; do
     slug="$(page_slug "$file")"
     fm="$(extract_frontmatter "$file")"
 
-    title="$(fm_field "$fm" title)"
+    # One awk pass for every scalar field; reading them individually spawned a
+    # subshell and an awk per field per page.
+    {
+        IFS= read -r title; IFS= read -r ptype; IFS= read -r lang
+        IFS= read -r summary; IFS= read -r modified; IFS= read -r pclass
+        IFS= read -r pstatus; IFS= read -r parea
+    } < <(fm_fields "$fm" title type language summary modified class status area)
     [ -z "$title" ] && title="$slug"
-    ptype="$(fm_field "$fm" type)"
     [ -z "$ptype" ] && ptype="unknown"
-    lang="$(fm_field "$fm" language)"
     [ -z "$lang" ] && lang="—"
-    summary="$(fm_field "$fm" summary)"
-    modified="$(fm_field "$fm" modified)"
     [ -z "$modified" ] && modified="—"
-    pclass="$(fm_field "$fm" class)"
     [ -z "$pclass" ] && pclass="—"
-    pstatus="$(fm_field "$fm" status)"
     [ -z "$pstatus" ] && pstatus="—"
-    parea="$(fm_field "$fm" area)"
     [ -z "$parea" ] && parea="—"
 
     # Pipes would break the markdown table; escape them.

@@ -129,6 +129,20 @@ The LLM performs a quick scan (no page content reads needed):
 
 **Severity:** ⚠️ WARNING — inconsistent naming makes the wiki harder to navigate programmatically
 
+### Step Q5b: Check Graph Freshness
+
+```bash
+scripts/check-graph-stale.sh "$WIKI_ROOT"
+```
+
+**What it checks:** whether `graph.json` reflects the current pages. Only
+`/wiki-graph` rebuilds the graph, while ingest and save rebuild the index and
+backlinks — so without this the graph rots and nothing says so.
+
+**Exit codes:** 0 = fresh, 1 = stale, 2 = never built
+
+**Severity:** ⚠️ WARNING — **Fix:** `scripts/build-graph.sh "$WIKI_ROOT"`
+
 ### Step Q6: Validate Citations
 
 ```bash
@@ -170,6 +184,7 @@ After running Q1-Q6, present:
 | Stale Index | ... |
 | Naming | ... |
 | Citations | ... |
+| Graph | ... |
 
 ## Summary
 - {N} errors, {N} warnings

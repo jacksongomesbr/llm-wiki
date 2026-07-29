@@ -89,15 +89,15 @@ while IFS= read -r -d '' file; do
     fm="$(extract_frontmatter "$file")"
     rel="${file#"$WIKI_ROOT"/}"
 
-    title="$(fm_field "$fm" title)";        [ -z "$title" ] && title="$slug"
-    ptype="$(fm_field "$fm" type)";         [ -z "$ptype" ] && ptype="concept"
-    pclass="$(fm_field "$fm" class)"
-    pstatus="$(fm_field "$fm" status)"
-    summary="$(fm_field "$fm" summary)"
-    lang="$(fm_field "$fm" language)"
-    modified="$(fm_field "$fm" modified)"
-    parea="$(fm_field "$fm" area)"
-    created="$(fm_field "$fm" created)"
+    # One awk pass for every scalar field. Reading them one at a time spawned a
+    # subshell and an awk per field per page, which dominated the runtime.
+    {
+        IFS= read -r title; IFS= read -r ptype; IFS= read -r pclass
+        IFS= read -r pstatus; IFS= read -r summary; IFS= read -r lang
+        IFS= read -r modified; IFS= read -r parea; IFS= read -r created
+    } < <(fm_fields "$fm" title type class status summary language modified area created)
+    [ -z "$title" ] && title="$slug"
+    [ -z "$ptype" ] && ptype="concept"
     tags="$(fm_list "$fm" tags | tr '\n' ',' | sed 's/,$//')"
     refs="$(fm_list "$fm" references | tr '\n' ',' | sed 's/,$//')"
 
@@ -142,8 +142,19 @@ COMPONENTS="$(awk -F'\t' '
 ' "$SLUGS" "$EDGES")"
 [ -z "$COMPONENTS" ] && COMPONENTS=0
 
-indeg()  { awk -F'\t' -v s="$1" '$3=="link" && $2==s' "$EDGES" | wc -l | tr -d ' '; }
-outdeg() { awk -F'\t' -v s="$1" '$3=="link" && $1==s' "$EDGES" | wc -l | tr -d ' '; }
+# All degrees in one pass. Scanning the edge file once per node was O(n^2):
+# 150 pages meant 300 full scans.
+DEGREES="$TMP/degrees.tsv"       # slug \t inDegree \t outDegree
+awk -F'\t' '
+    NR == FNR { slug[$1] = 1; next }
+    $3 == "link" { out[$1]++; in_[$2]++ }
+    END { for (s in slug) printf "%s\t%d\t%d\n", s, in_[s] + 0, out[s] + 0 }
+' "$SLUGS" "$EDGES" | sort > "$DEGREES"
+
+# Citation in-degree for bibliography nodes, same single-pass treatment.
+CITEDEG="$TMP/citedeg.tsv"
+awk -F'\t' '$3 == "cite" { c[$2]++ } END { for (t in c) printf "%s\t%d\n", t, c[t] }' \
+    "$EDGES" | sort > "$CITEDEG"
 
 # ── Preserve pinned positions ───────────────────────────────────────────────
 
@@ -160,68 +171,116 @@ NOW="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 NODE_COUNT="$(wc -l < "$NODES" | tr -d ' ')"
 JSON="$TMP/graph.json"
 
-{
-    printf '{\n  "generated": "%s",\n  "components": %s,\n  "nodes": [\n' "$NOW" "$COMPONENTS"
-    first=true
-    while IFS="$SEP" read -r slug ptype pclass pstatus title summary tags lang modified parea refs created rel; do
-        [ -z "$slug" ] && continue
-        i="$(indeg "$slug")"; o="$(outdeg "$slug")"
-        hub=false; [ "$i" -ge 5 ] && hub=true
-        [ "$first" = true ] && first=false || printf ',\n'
-        printf '    {"id": "%s", "title": "%s", "type": "%s", "class": %s, "status": %s' \
-            "$(json_escape "$slug")" "$(json_escape "$title")" "$(json_escape "$ptype")" \
-            "$([ -n "$pclass" ] && printf '"%s"' "$(json_escape "$pclass")" || echo null)" \
-            "$([ -n "$pstatus" ] && printf '"%s"' "$(json_escape "$pstatus")" || echo null)"
-        printf ', "summary": "%s", "path": "../%s", "inDegree": %s, "outDegree": %s, "isHub": %s' \
-            "$(json_escape "$summary")" "$(json_escape "$rel")" "$i" "$o" "$hub"
-        printf ', "references": [%s]' \
-            "$(printf '%s' "$refs" | awk -F',' '{ for (n=1; n<=NF; n++) if ($n != "") printf "%s\"%s\"", (n>1?", ":""), $n }')"
-        printf ', "frontmatter": {"language": "%s", "created": "%s", "modified": "%s", "tags": "%s", "area": "%s"}' \
-            "$(json_escape "$lang")" "$(json_escape "$created")" \
-            "$(json_escape "$modified")" "$(json_escape "$tags")" "$(json_escape "$parea")"
-        pin="$(awk -F'\t' -v s="$slug" '$1==s { printf ", \"fx\": %s, \"fy\": %s", $2, $3; exit }' "$PINS")"
-        printf '%s}' "$pin"
-    done < "$NODES"
-    # Bibliography entries as a second node layer. Their ids are namespaced
-    # `bib:` so they can never collide with a page slug.
-    BIB="$WIKI_ROOT/references.bib"
-    if [ -f "$BIB" ]; then
-        while IFS="$SEP" read -r bkey btitle burl; do
-            [ -z "$bkey" ] && continue
-            [ "$first" = true ] && first=false || printf ',\n'
-            printf '    {"id": "bib:%s", "title": "%s", "type": "source", "class": null, "status": null' \
-                "$(json_escape "$bkey")" "$(json_escape "${btitle:-$bkey}")"
-            printf ', "summary": "%s", "path": %s, "inDegree": %s, "outDegree": 0, "isHub": false' \
-                "$(json_escape "$burl")" \
-                "$([ -n "$burl" ] && printf '"%s"' "$(json_escape "$burl")" || echo null)" \
-                "$(awk -F'\t' -v s="bib:$bkey" '$3=="cite" && $2==s' "$EDGES" | wc -l | tr -d ' ')"
-            printf ', "references": [], "frontmatter": {"citekey": "%s", "url": "%s"}}' \
-                "$(json_escape "$bkey")" "$(json_escape "$burl")"
-        done < <(awk -v SEP="$SEP" '
-            /^[[:space:]]*@/ {
-                if (key != "") print key SEP title SEP url
-                key = $0
-                sub(/^[[:space:]]*@[A-Za-z]+[[:space:]]*\{[[:space:]]*/, "", key)
-                sub(/[[:space:]]*,.*$/, "", key)
-                title = ""; url = ""
-                next
-            }
-            /^[[:space:]]*title[[:space:]]*=/ { v = $0; sub(/^[^{]*\{/, "", v); sub(/\}.*$/, "", v); title = v }
-            /^[[:space:]]*url[[:space:]]*=/   { v = $0; sub(/^[^{]*\{/, "", v); sub(/\}.*$/, "", v); url = v }
-            END { if (key != "") print key SEP title SEP url }
-        ' "$BIB")
-    fi
+# Bibliography entries, flattened once so the emitter can stream them.
+BIBTSV="$TMP/bib.tsv"
+: > "$BIBTSV"
+if [ -f "$WIKI_ROOT/references.bib" ]; then
+    awk -v SEP="$SEP" '
+        /^[[:space:]]*@/ {
+            if (key != "") print key SEP title SEP url
+            key = $0
+            sub(/^[[:space:]]*@[A-Za-z]+[[:space:]]*\{[[:space:]]*/, "", key)
+            sub(/[[:space:]]*,.*$/, "", key)
+            title = ""; url = ""
+            next
+        }
+        /^[[:space:]]*title[[:space:]]*=/ { v = $0; sub(/^[^{]*\{/, "", v); sub(/\}.*$/, "", v); title = v }
+        /^[[:space:]]*url[[:space:]]*=/   { v = $0; sub(/^[^{]*\{/, "", v); sub(/\}.*$/, "", v); url = v }
+        END { if (key != "") print key SEP title SEP url }
+    ' "$WIKI_ROOT/references.bib" > "$BIBTSV"
+fi
 
-    printf '\n  ],\n  "edges": [\n'
-    first=true
-    while IFS="$(printf '\t')" read -r s t k; do
-        [ -z "$s" ] && continue
-        [ "$first" = true ] && first=false || printf ',\n'
-        printf '    {"source": "%s", "target": "%s", "kind": "%s"}' \
-            "$(json_escape "$s")" "$(json_escape "$t")" "$(json_escape "$k")"
-    done < "$EDGES"
-    printf '\n  ]\n}\n'
-} > "$JSON"
+# The whole document is written by one awk program. The previous emitter called
+# json_escape per field per node — roughly thirteen subshells for every page,
+# which was the single largest cost in the script.
+awk -v SEP="$SEP" -v now="$NOW" -v components="$COMPONENTS" \
+    -v degfile="$DEGREES" -v pinfile="$PINS" -v citefile="$CITEDEG" \
+    -v bibfile="$BIBTSV" -v edgefile="$EDGES" '
+    function jesc(v) {
+        gsub(/\\/, "\\\\", v)
+        gsub(/"/, "\\\"", v)
+        gsub(/\t/, "\\t", v)
+        gsub(/\r/, "\\r", v)
+        return v
+    }
+    function jstr(v) { return "\"" jesc(v) "\"" }
+    function jornull(v) { return v == "" ? "null" : jstr(v) }
+    function reflist(csv,   n, parts, i, out) {
+        if (csv == "") return ""
+        n = split(csv, parts, ",")
+        for (i = 1; i <= n; i++)
+            if (parts[i] != "") out = out (out == "" ? "" : ", ") jstr(parts[i])
+        return out
+    }
+    BEGIN {
+        FS = SEP
+        while ((getline line < degfile) > 0) {
+            split(line, d, "\t"); indeg[d[1]] = d[2]; outdeg[d[1]] = d[3]
+        }
+        close(degfile)
+        while ((getline line < pinfile) > 0) {
+            split(line, d, "\t"); fx[d[1]] = d[2]; fy[d[1]] = d[3]
+        }
+        close(pinfile)
+        while ((getline line < citefile) > 0) {
+            split(line, d, "\t"); citedeg[d[1]] = d[2]
+        }
+        close(citefile)
+
+        printf "{\n  \"generated\": %s,\n  \"components\": %s,\n  \"nodes\": [\n", jstr(now), components
+        first = 1
+    }
+    {
+        slug = $1; ptype = $2; pclass = $3; pstatus = $4; title = $5; summary = $6
+        tags = $7; lang = $8; modified = $9; parea = $10; refs = $11
+        created = $12; rel = $13
+        if (slug == "") next
+        if (title == "") title = slug
+        if (ptype == "") ptype = "concept"
+        i = indeg[slug] + 0; o = outdeg[slug] + 0
+
+        if (!first) printf ",\n"; first = 0
+        printf "    {\"id\": %s, \"title\": %s, \"type\": %s, \"class\": %s, \"status\": %s",
+            jstr(slug), jstr(title), jstr(ptype), jornull(pclass), jornull(pstatus)
+        printf ", \"summary\": %s, \"path\": %s, \"inDegree\": %d, \"outDegree\": %d, \"isHub\": %s",
+            jstr(summary), jstr("../" rel), i, o, (i >= 5 ? "true" : "false")
+        printf ", \"references\": [%s]", reflist(refs)
+        printf ", \"frontmatter\": {\"language\": %s, \"created\": %s, \"modified\": %s, \"tags\": %s, \"area\": %s}",
+            jstr(lang), jstr(created), jstr(modified), jstr(tags), jstr(parea)
+        if (slug in fx) printf ", \"fx\": %s, \"fy\": %s", fx[slug], fy[slug]
+        printf "}"
+    }
+    END {
+        # Bibliography entries as a second node layer, namespaced `bib:` so they
+        # can never collide with a page slug.
+        while ((getline line < bibfile) > 0) {
+            split(line, b, SEP)
+            if (b[1] == "") continue
+            id = "bib:" b[1]
+            btitle = (b[2] == "" ? b[1] : b[2])
+            if (!first) printf ",\n"; first = 0
+            printf "    {\"id\": %s, \"title\": %s, \"type\": \"source\", \"class\": null, \"status\": null",
+                jstr(id), jstr(btitle)
+            printf ", \"summary\": %s, \"path\": %s, \"inDegree\": %d, \"outDegree\": 0, \"isHub\": false",
+                jstr(b[3]), jornull(b[3]), citedeg[id] + 0
+            printf ", \"references\": [], \"frontmatter\": {\"citekey\": %s, \"url\": %s}}",
+                jstr(b[1]), jstr(b[3])
+        }
+        close(bibfile)
+
+        printf "\n  ],\n  \"edges\": [\n"
+        efirst = 1
+        while ((getline line < edgefile) > 0) {
+            split(line, e, "\t")
+            if (e[1] == "") continue
+            if (!efirst) printf ",\n"; efirst = 0
+            printf "    {\"source\": %s, \"target\": %s, \"kind\": %s}",
+                jstr(e[1]), jstr(e[2]), jstr(e[3])
+        }
+        close(edgefile)
+        printf "\n  ]\n}\n"
+    }
+' "$NODES" > "$JSON"
 
 if command -v jq >/dev/null 2>&1 && ! jq empty "$JSON" 2>/dev/null; then
     echo "ERROR: generated graph.json is not valid JSON" >&2
@@ -229,7 +288,21 @@ if command -v jq >/dev/null 2>&1 && ! jq empty "$JSON" 2>/dev/null; then
 fi
 cp "$JSON" "$META_DIR/graph.json"
 
+# Record what the graph was built from. Without this the graph rots silently:
+# only /wiki-graph rebuilds it, while every other workflow rebuilds the index.
+mkdir -p "$META_DIR/cache"
+wiki_frontmatter_hash "$WIKI_ROOT" > "$META_DIR/cache/graph-hash.txt"
+
 # ── Render graph.html ───────────────────────────────────────────────────────
+
+if [ "$NO_HTML" = true ]; then
+    # The data changed but the view did not. Saying so beats leaving a file that
+    # silently disagrees with graph.json.
+    if [ -f "$META_DIR/graph.html" ] && [ "$QUIET" = false ]; then
+        echo "NOTE: graph.html was left untouched and no longer matches graph.json." >&2
+        echo "      Re-run without --no-html to refresh it." >&2
+    fi
+fi
 
 if [ "$NO_HTML" = false ]; then
     if [ ! -f "$TEMPLATE" ]; then

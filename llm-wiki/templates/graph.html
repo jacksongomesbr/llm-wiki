@@ -90,6 +90,9 @@
   .node.source { stroke-width: 1px; }
   .faded { opacity: var(--dim); }
   .label { font-size: 10px; fill: var(--muted); pointer-events: none; }
+  .node:focus { outline: none; }
+  .node.kbfocus { stroke: var(--accent); stroke-width: 3px; }
+  #svg:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
   #panel {
     grid-area: panel; border-left: 1px solid var(--border); background: var(--panel);
@@ -128,9 +131,12 @@
   <button id="theme">Theme</button>
 </div>
 
-<div id="canvas"><svg id="svg"></svg></div>
+<div id="canvas">
+  <svg id="svg" role="application" tabindex="0"
+       aria-label="Knowledge graph. Tab moves between pages, Enter selects, P pins."></svg>
+</div>
 
-<aside id="panel">
+<aside id="panel" aria-live="polite">
   <h2>Graph</h2>
   <dl class="kv" id="graphStats"></dl>
   <h2>Selected</h2>
@@ -228,7 +234,19 @@ __D3_SCRIPT_TAG__
       })
       .attr("fill", function (d) { return colorOf(d.type); })
       .attr("opacity", function (d) { return d.status === "archived" ? 0.45 : 1; })
+      .attr("tabindex", 0)
+      .attr("role", "button")
+      .attr("aria-label", function (d) { return d.title + ", " + kindOf(d); })
       .on("click", function (ev, d) { select(d.id); })
+      .on("keydown", function (ev, d) {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(d.id); }
+        if (ev.key === "p" || ev.key === "P") {
+          d.fx = d.fx == null ? d.x : null;
+          d.fy = d.fy == null ? d.y : null;
+          sim.alpha(0.1).restart();
+          draw();
+        }
+      })
       .on("dblclick", function (ev, d) {
         d.fx = d.fx == null ? d.x : null;
         d.fy = d.fy == null ? d.y : null;
@@ -351,6 +369,7 @@ __D3_SCRIPT_TAG__
 
   function select(id) {
     selected = id;
+    nodeSel.classed("kbfocus", function (n) { return n.id === id; });
     location.hash = "node=" + id;
     var d = byId[id];
     var back = [], out = [];

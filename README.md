@@ -302,6 +302,7 @@ llm-wiki/
 │   ├── convert-source.sh            PDF/docx/epub/html → markdown for ingestion
 │   ├── vendor-d3.sh                 Vendor D3 for offline knowledge graphs
 │   ├── build-graph.sh               ★ Generate graph.json + graph.html
+│   ├── check-graph-stale.sh         Is the graph current with the pages?
 │   ├── archive-source.sh            Write fetched web content to .raw/ with provenance
 │   ├── hash-files.sh                SHA-256 hash source files
 │   ├── check-stale.sh               Index freshness check

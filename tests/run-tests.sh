@@ -1138,6 +1138,84 @@ assert_eq "$(jq -e 'has("nodes")' "$J" >/dev/null && echo ok)" "ok" "--no-html s
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
+# fm_fields / graph staleness / accessibility
+# ════════════════════════════════════════════════════════════════════════════
+
+if should_run "perf"; then
+describe "fm_fields"
+
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../llm-wiki/scripts/_utils.sh
+source "$SCRIPTS/_utils.sh"
+
+D="$(mktemp -d)"; TMPDIRS="$TMPDIRS $D"
+cat > "$D/p.md" <<'EOF'
+---
+title: "A Title"
+type: entity
+class: person
+summary: "A summary"
+---
+# Body
+EOF
+FM="$(extract_frontmatter "$D/p.md")"
+{ IFS= read -r t1; IFS= read -r t2; IFS= read -r t3; IFS= read -r t4; IFS= read -r t5; } \
+    < <(fm_fields "$FM" title type class status summary)
+assert_eq "$t1" "A Title" "reads the first field"
+assert_eq "$t2" "entity" "reads a middle field"
+assert_eq "$t3" "person" "reads fields in the order asked"
+assert_eq "$t4" "" "an absent field yields an empty line, not a shift"
+assert_eq "$t5" "A summary" "a field after an absent one still lands correctly"
+
+# fm_fields must agree with fm_field, which the rest of the suite relies on.
+assert_eq "$t1" "$(fm_field "$FM" title)" "agrees with fm_field"
+fi
+
+if should_run "graphstale"; then
+describe "check-graph-stale.sh"
+
+W="$(new_wiki)"
+bash "$SCRIPTS/check-graph-stale.sh" "$W" >/dev/null 2>&1
+assert_eq "$?" "2" "exits 2 when the graph has never been built"
+
+valid_page "$W" "one" "Content."
+bash "$SCRIPTS/build-graph.sh" "$W" --quiet
+OUT="$(bash "$SCRIPTS/check-graph-stale.sh" "$W" 2>&1)"
+RC=$?
+assert_contains "$OUT" "FRESH" "reports FRESH right after a build"
+assert_eq "$RC" "0" "exits 0 when fresh"
+
+valid_page "$W" "two" "Added after the graph was built."
+OUT="$(bash "$SCRIPTS/check-graph-stale.sh" "$W" 2>&1)"
+RC=$?
+assert_contains "$OUT" "STALE" "reports STALE after a page is added"
+assert_eq "$RC" "1" "exits 1 when stale"
+
+# --no-html leaves the view behind; that must be said, not hidden.
+bash "$SCRIPTS/build-graph.sh" "$W" --quiet >/dev/null
+ERR="$(bash "$SCRIPTS/build-graph.sh" "$W" --no-html 2>&1 >/dev/null)"
+assert_contains "$ERR" "no longer matches graph.json" "--no-html warns that graph.html is now stale"
+fi
+
+if should_run "a11y"; then
+describe "graph accessibility"
+
+W="$(new_wiki)"
+valid_page "$W" "one" "Links to [[two]]."
+valid_page "$W" "two" "A page."
+bash "$SCRIPTS/build-graph.sh" "$W" --quiet
+H="$(cat "$W/.llm-wiki/graph.html")"
+assert_contains "$H" 'role="application"' "the canvas declares a role"
+assert_contains "$H" 'tabindex="0"' "the canvas is reachable by keyboard"
+assert_contains "$H" '.attr("tabindex", 0)' "nodes are focusable"
+assert_contains "$H" 'aria-label' "nodes carry an accessible name"
+assert_contains "$H" 'aria-live="polite"' "the detail panel announces changes"
+assert_contains "$H" 'on("keydown"' "nodes respond to keyboard input"
+assert_not_contains "$H" 'on("focus", function (ev, d) { select' \
+    "focus does not auto-select, which would spam the live region while tabbing"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
 # Summary
 # ════════════════════════════════════════════════════════════════════════════
 

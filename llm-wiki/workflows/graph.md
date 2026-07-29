@@ -37,7 +37,14 @@ That is the whole operation. It writes:
 - `$WIKI_ROOT/.llm-wiki/graph.json` — nodes, edges, degrees, components
 - `$WIKI_ROOT/.llm-wiki/graph.html` — the interactive view
 
-Options: `--quiet`, `--no-html` (data only).
+Options: `--quiet`, `--no-html` (data only — it warns that `graph.html` is left
+behind and no longer matches).
+
+To check without rebuilding:
+
+```bash
+scripts/check-graph-stale.sh "$WIKI_ROOT"    # 0 fresh, 1 stale, 2 never built
+```
 
 **Do not hand-write either file.** To change how the graph looks or behaves,
 edit `templates/graph.html` in the skill; the generated file is overwritten on
@@ -84,6 +91,7 @@ topic was ingested without being cross-linked to anything already there.
 | Deep links | `graph.html#node=apple-inc` |
 | Open page | Relative link to the actual `.md` |
 | Light/dark | Follows the system, with a manual toggle |
+| Keyboard | Tab reaches nodes, Enter selects, `P` pins; the panel is an aria-live region |
 
 Bibliography nodes are namespaced `bib:<citekey>` so they can never collide
 with a page slug, and they appear only when the citation layer is on.

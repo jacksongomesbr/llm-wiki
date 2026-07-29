@@ -110,6 +110,31 @@ fm_field() {
     '
 }
 
+# fm_fields <frontmatter_text> <field>... — Print the requested scalar fields,
+# one per line, in the order asked. Absent fields yield an empty line.
+#
+# One awk pass for all fields, instead of one subshell-plus-awk per field.
+# Reading eleven fields per page spawned thousands of processes on a wiki of a
+# few hundred pages, which dominated the runtime of every script.
+fm_fields() {
+    local fm="$1"; shift
+    printf '%s\n' "$fm" | awk -v keys="$*" '
+        BEGIN { n = split(keys, want, " ") }
+        {
+            for (i = 1; i <= n; i++) {
+                k = want[i]
+                if (index($0, k ":") == 1 && !(k in seen)) {
+                    v = $0
+                    sub("^" k ":[[:space:]]*", "", v)
+                    gsub(/^["'"'"']|["'"'"']$/, "", v)
+                    val[k] = v; seen[k] = 1
+                }
+            }
+        }
+        END { for (i = 1; i <= n; i++) print val[want[i]] }
+    '
+}
+
 # fm_list <frontmatter_text> <field> — Print list items one per line.
 # Handles inline (`tags: [a, b]`) and block (`tags:\n  - a\n  - b`) forms.
 fm_list() {
